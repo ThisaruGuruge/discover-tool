@@ -25,14 +25,18 @@ import io.ballerina.tools.discover.central.PackageRepository;
 import io.ballerina.tools.discover.central.schema.CentralDocs;
 import io.ballerina.tools.discover.model.Bindings;
 import io.ballerina.tools.discover.model.FromCentral;
+import io.ballerina.tools.discover.model.InlineRecords;
 import io.ballerina.tools.discover.model.Library;
 import io.ballerina.tools.discover.model.Pipeline;
+import io.ballerina.tools.discover.source.SourceFacts;
 import io.ballerina.tools.discover.source.SourceInclusions;
 import io.ballerina.tools.discover.views.Readmes;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -271,9 +275,13 @@ public final class Loader {
         if (!module.isOk()) {
             return module.cast();
         }
-        Library library = Pipeline.build(module.value());
-        Supplier<Library> bound = Bindings.needsSource(module.value())
-                ? memoized(() -> Pipeline.build(module.value(), SourceInclusions.load(
+        AtomicBoolean inlineRecordsConsulted = new AtomicBoolean();
+        Library library = Pipeline.build(module.value(), Optional.empty(), names -> {
+            inlineRecordsConsulted.set(true);
+            return Optional.empty();
+        });
+        Supplier<Library> bound = Bindings.needsSource(module.value()) || inlineRecordsConsulted.get()
+                ? memoized(() -> fromSource(module.value(), SourceInclusions.load(
                         fetched.repository(), qualified, resolved, module.value().id(), options.http())))
                 : () -> library;
 
@@ -288,6 +296,11 @@ public final class Loader {
                 unverifiedWarning(resolved.stale()),
                 options.version(),
                 bound));
+    }
+
+    private static Library fromSource(CentralDocs.Module module, Optional<SourceFacts> facts) {
+        return Pipeline.build(module, facts.map(SourceFacts::inclusions),
+                facts.<InlineRecords>map(SourceFacts::inlineRecords).orElse(InlineRecords.NONE));
     }
 
     private static <T> Supplier<T> memoized(Supplier<T> compute) {

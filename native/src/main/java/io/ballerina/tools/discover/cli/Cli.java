@@ -221,11 +221,11 @@ public final class Cli {
                     selectors.isEmpty() ? null : String.join(" ", selectors), filter, page));
         }
         if (Types.BUCKET.equals(bucket)) {
-            return Types.render(loaded, new Types.Options(selectors, filter, page));
+            return Types.render(loaded.withSource(), new Types.Options(selectors, filter, page));
         }
         Surface.Scope scope = Surface.Scope.ofVerb(bucket)
                 .orElseThrow(() -> new IllegalStateException("unreachable: validated above"));
-        return Containers.render(loaded, scope, new Containers.Options(selectors, filter, page));
+        return Containers.render(loaded.withSource(), scope, new Containers.Options(selectors, filter, page));
     }
 
     private static Failure extraNames(String bucket, List<String> rest, String filter, Commands.Root root,
