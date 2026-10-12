@@ -99,15 +99,23 @@ public final class LocalBalas implements ModuleSources {
         Path versionDir = root.resolve(qualified.org()).resolve(qualified.name()).resolve(version.text());
         try (Stream<Path> platforms = Files.list(versionDir)) {
             for (Path platform : platforms.sorted().toList()) {
-                Optional<Map<String, String>> sources = readModule(platform.resolve("modules").resolve(moduleId));
-                if (sources.isPresent()) {
-                    return sources;
+                Map<String, String> files = new TreeMap<>(
+                        readModule(platform.resolve("modules").resolve(moduleId)).orElse(Map.of()));
+                readTriggerMetadata(platform).ifPresent(metadata -> files.put(Bala.TRIGGER_METADATA, metadata));
+                if (!files.isEmpty()) {
+                    return Optional.of(files);
                 }
             }
         } catch (IOException | RuntimeException unreadable) {
             return Optional.empty();
         }
         return Optional.empty();
+    }
+
+    private static Optional<String> readTriggerMetadata(Path platform) throws IOException {
+        Path metadata = platform.resolve(Bala.TRIGGER_METADATA);
+        return Files.isRegularFile(metadata) ? Optional.of(Files.readString(metadata, StandardCharsets.UTF_8))
+                : Optional.empty();
     }
 
     private static Optional<Map<String, String>> readModule(Path moduleDir) throws IOException {
