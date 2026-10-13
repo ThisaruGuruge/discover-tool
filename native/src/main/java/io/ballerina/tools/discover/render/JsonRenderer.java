@@ -597,7 +597,7 @@ public final class JsonRenderer {
                 entry.addProperty("accessor", hit.detail());
             }
             case README -> {
-                entry.addProperty("number", Integer.parseInt(hit.detail()));
+                entry.addProperty("number", hit.number());
                 entry.addProperty("title", hit.name());
             }
             case TYPES -> {

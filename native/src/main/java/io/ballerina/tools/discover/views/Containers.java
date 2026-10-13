@@ -18,6 +18,7 @@
 
 package io.ballerina.tools.discover.views;
 
+import io.ballerina.tools.discover.Coordinate;
 import io.ballerina.tools.discover.Failure;
 import io.ballerina.tools.discover.LoadedPackage;
 import io.ballerina.tools.discover.Result;
@@ -165,8 +166,6 @@ public final class Containers {
     private static final String NEW = "new";
 
     private static final String PATH_SEPARATOR = "/";
-
-    private static final String COMMAND = "bal discover ";
 
     private static final String VOWELS = "aeiou";
 
@@ -533,7 +532,8 @@ public final class Containers {
 
     private static Optional<String> foreignCommand(LoadedPackage loaded, Service service) {
         return loaded.argumentFor(service.declaredIn().orElseThrow())
-                .map(target -> COMMAND + target + " " + Surface.Scope.SERVICE.verb() + " " + shellWord(service.name()));
+                .map(target -> Coordinate.COMMAND + target + " " + Surface.Scope.SERVICE.verb() + " "
+                        + shellWord(service.name()));
     }
 
     /**
@@ -952,7 +952,6 @@ public final class Containers {
                 loaded.warning(), note));
     }
 
-    // The one place readme examples join a method's answer; dropping this call drops the feature.
     private static List<DiscoverResult.ReadmeSections.Section> callers(LoadedPackage loaded,
             Surface.Container container, Entry entry) {
         return ReadmeCalls.calling(loaded, container, entry).stream()

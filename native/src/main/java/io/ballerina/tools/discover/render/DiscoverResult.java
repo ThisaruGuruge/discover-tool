@@ -635,10 +635,16 @@ public sealed interface DiscoverResult {
          *
          * @param name its name, a resource's path, or a readme section's title
          * @param container the container that declares a method, or {@code null}
-         * @param detail a resource's accessor, a type's kind or a readme section's number, or {@code null}
+         * @param detail a resource's accessor or a type's kind, or {@code null}
+         * @param number a readme section's number, or {@code null}
          * @param command the command that opens it
          */
-        public record Hit(String name, String container, String detail, String command) { }
+        public record Hit(String name, String container, String detail, Integer number, String command) {
+
+            public Hit(String name, String container, String detail, String command) {
+                this(name, container, detail, null, command);
+            }
+        }
     }
 
     /**
