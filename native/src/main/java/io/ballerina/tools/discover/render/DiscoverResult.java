@@ -323,7 +323,7 @@ public sealed interface DiscoverResult {
     }
 
     /**
-     * A service type that declares no methods and whose package describes none: a service of it defines its own, so
+     * A service type that declares no methods and whose package describes none: a service of it declares its own, so
      * the answer is the type's own documentation and the readme sections whose code declares such a service — never
      * a bare "no methods".
      *

@@ -283,7 +283,11 @@ public final class JsonRenderer {
         JsonArray handlers = new JsonArray();
         for (ServiceHandlers.Handler handler : list.handlers()) {
             JsonObject entry = new JsonObject();
-            addIfPresent(entry, "name", handler.name());
+            if (handler.name() == null) {
+                entry.addProperty("id", handler.id());
+            } else {
+                entry.addProperty("name", handler.name());
+            }
             entry.addProperty("kind", handler.kind().label());
             entry.addProperty("signature", handler.signature());
             entry.addProperty("required", handler.required());

@@ -407,7 +407,9 @@ public final class Containers {
         }
         String names = listenerNames(container);
         if (names == null) {
-            return null;
+            return container.scope() == Surface.Scope.SERVICE && loaded.library().listeners().isEmpty()
+                    ? "no listener in this package accepts it; it attaches to a listener another package declares"
+                    : null;
         }
         Optional<Service> foreign = foreignPairing(container);
         if (foreign.isPresent()) {

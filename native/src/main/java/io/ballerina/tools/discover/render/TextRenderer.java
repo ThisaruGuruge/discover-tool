@@ -381,7 +381,8 @@ public final class TextRenderer {
         for (ServiceHandlers.Handler handler : list.handlers()) {
             List<String> lines = new ArrayList<>();
             lines.add(handler.signature());
-            lines.add(INDENT + presence(handler.repeatable(), handler.required()));
+            String presence = presence(handler.repeatable(), handler.required());
+            lines.add(INDENT + (handler.name() == null ? handler.id() + ", " + presence : presence));
             if (handler.deprecated() != null) {
                 lines.add(INDENT + "Deprecated: " + handler.deprecated());
             }
@@ -408,7 +409,8 @@ public final class TextRenderer {
     }
 
     private static void serviceExamples(Layout layout, DiscoverResult.ServiceExamples examples) {
-        layout.top(examples.container() + " declares no methods: a service of it defines its own.");
+        layout.top(examples.container() + " declares no methods; a service of this type declares its own resource "
+                + "or remote methods.");
         if (!examples.description().isBlank()) {
             layout.block(List.of(examples.description().strip()));
         }
