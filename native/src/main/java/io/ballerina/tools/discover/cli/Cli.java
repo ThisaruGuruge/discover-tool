@@ -210,7 +210,8 @@ public final class Cli {
             return fail(readAt(notPaged(root, coordinate.value(), filter), loaded.value()), streams, json);
         }
         String read = loaded.value().version().text();
-        TextRenderer.Context where = new TextRenderer.Context(qualified.qualified(), root.module, rest,
+        List<String> shown = rest.stream().map(word -> PathTree.join(PathTree.splitPath(word))).toList();
+        TextRenderer.Context where = new TextRenderer.Context(qualified.qualified(), root.module, shown,
                 filter, Version.textOf(version), read);
         JsonRenderer.Where about = new JsonRenderer.Where(qualified.qualified(), read, root.module);
         streams.out().accept((json ? JsonRenderer.render(answer.value(), about)
