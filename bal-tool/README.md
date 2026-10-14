@@ -577,8 +577,8 @@ error: 'close' is declared by Consumer and Producer in ballerinax/kafka:4.6.5.
     Producer  bal discover ballerinax/kafka client Producer close
 ```
 
-A name several containers declare has no one command to run, so that failure carries none: its JSON lists each
-container in `owners`, as `{"name", "command"}` rows whose commands open what was named on it (at most 40; past
+A name several containers declare has no one command to run, so that failure, `ambiguous` at exit 3, carries none:
+its JSON lists each container in `owners`, as `{"name", "command"}` rows whose commands open what was named on it (at most 40; past
 that the suggestion quotes the package's `search` for the name).
 
 A service type that declares no methods, and whose package does not describe the ones a service defines,
@@ -632,7 +632,9 @@ Types it uses (2)
 
 A readme of at most 10 KB prints whole, under the same header line as every other answer. A larger one lists every
 one of its sections (a heading and everything down to the next heading) with the command that opens it, never cut off.
-A large readme can be narrowed to the sections that mention a keyword:
+A title (`readme "<title>"`) is matched on its letters and digits in any case, exactly when some section's title is
+equal to it, else as part of a title; one that matches several sections is an `ambiguous` failure (exit 3) listing
+them in `sections` (`{"name", "command"}`). A large readme can be narrowed to the sections that mention a keyword:
 
 ```
 $ bal discover ballerinax/kafka readme --filter producer
@@ -726,7 +728,7 @@ no line breaks inside it, so a `head`/`tail` cut never splits one — and these 
 | search in a package                  | `keywords`, then per kind with a match `clients`, `serviceTypes`, `classes`, `listeners`, `functions` (`name`, `command`), `remote`, `methods` (`container`, `name`, `command`), `resources` (`container`, `path`, `accessor`, `command`), `types` (`name`, `kind`, `command`), `readme` (`number`, `title`, `command`), `submodules` (`name`, `command`); `counts` (per kind), `shown`, `total`, `page`, `pages`, `remaining`, `next`, and `overview` when nothing matched |
 | search of Central                    | `keywords`, `packages` (`entries` (`qualified`, `version`, `summary`, `command`), `shown`, `total`), `symbols` (`entries` (`qualified`, `version`, `module`, `kind`, `container`, `name` or, for a resource method, `path` and `accessor`, `command`), `shown`, `total`), `page`, `pages`, `remaining`, `next`; it names no one package, so it has no `qualified` |
 | readme                               | `readme`, `lines`, and `section`, `of`, `title` for one section                                                  |
-| readme sections                      | `sections` (`number`, `title`, `lines`, `command`), `matching` (true when narrowed by `--filter` or a title), `shown`, `total`, `page`, `pages`, `remaining`, `next` |
+| readme sections                      | `sections` (`number`, `title`, `lines`, `command`), `matching` (true when narrowed by `--filter`), `shown`, `total`, `page`, `pages`, `remaining`, `next` |
 
 Any answer can also carry `warning` (the version could not be confirmed against the registry), and a service
 type's answers `note` (the listener it binds to, or that it attaches to none), as can an enum member's (the enum
@@ -799,9 +801,19 @@ silently dropped.
 | ------ | -------------------------------------------------------------------------------- |
 | stdout | the answer, and nothing else                                                     |
 | stderr | on failure, exactly one failure, and nothing else                                |
-| exit 0 | success, and stdout is complete                                                  |
-| exit 2 | a usage error — the command line itself is malformed, so nothing was looked up: stdout is empty |
-| exit 1 | every other failure: stdout is empty, and the failure's `kind` and `suggestion` say what to do next |
+| exit 0 | an answer, and stdout is complete — an empty `--filter` or search result too     |
+
+On failure stdout is empty, and the exit code says what to do next, one code per action; the failure's `kind`
+and `suggestion` say the rest:
+
+| exit | means                                                                             | `kind`                                  |
+| ---- | --------------------------------------------------------------------------------- | --------------------------------------- |
+| 1    | not found: the package, version, module or name does not exist                    | `package-not-found`, `symbol-not-found` |
+| 2    | a usage error: the command is malformed, or asks for something it cannot combine | `validation`                            |
+| 3    | ambiguous: the name matches more than one thing, each listed with its command     | `ambiguous`                             |
+| 4    | Central could not be reached: the connection, DNS or TLS failed, or it timed out; may work on a retry | `upstream` with `reached: false` and no `status`, `timeout` |
+| 5    | Central answered badly: an HTTP error status (Central's or the proxy's), or a body this tool cannot read | `upstream` with a `status` or `reached: true`, `schema-drift` |
+| 6    | an internal error: a defect in `bal discover`                                     | `internal`                              |
 
 A failure is written in the same mode as an answer would have been: JSON off a terminal, text at one, either
 forced with `--output` (honoured even when the rest of the arguments fail to parse). In JSON it is one object
@@ -819,7 +831,7 @@ $ bal discover ballerinax/kafka client NoSuchContainer | cat
 ```
 
 In text it is `error: <message>`, then the suggestion and anything else the failure carries (schema issues, a
-readme's sections, the owners) indented below it; a usage error then ends with the synopsis and a pointer to `--help`:
+readme's sections, the matches) indented below it; a usage error then ends with the synopsis and a pointer to `--help`:
 
 ```
 $ bal discover ballerina/http:2.15
@@ -837,13 +849,13 @@ more than one name after `funcs` or `type`, a `type` name with `--filter`, or a 
 word, since it is most often a member typed without its bucket (`bal discover ballerinax/kafka close`). A
 `validation` failure that
 depends on what the package holds — an extra selector a container does not read, a page past the end of the
-listing, a module with no readme — is exit 1.
+listing — is exit 2 as well, without the synopsis.
 
-A search that matches nothing is an answer, not a failure (exit 0). `upstream` and `timeout` are worth re-running unchanged once their cause has passed or been fixed; `validation`,
+A search that matches nothing is an answer, not a failure (exit 0). `upstream` and `timeout` at exit 4 are worth re-running unchanged once their cause has passed or been fixed, and an `upstream` at exit 5 once Central or the proxy is fixed; `validation`, `ambiguous`,
 `package-not-found` and `symbol-not-found` need a different command — `symbol-not-found` is a container, member,
-path or type not named exactly as listed, or asked in a bucket that does not hold it (a `--module` the package does not publish
+path, type or readme section not named exactly as listed, or asked in a bucket that does not hold it, or a readme a module does not publish (a `--module` the package does not publish
 is `package-not-found` with `module`, and lists the submodules it does in `candidates`; a name several containers
-declare lists them in `owners`); `schema-drift` means Central's payload
+declare is `ambiguous` and lists them in `owners`); `schema-drift` means Central's payload
 changed shape and is for a maintainer; `internal` is a defect in `bal discover` itself, to report with the
 command that produced it. An `upstream` failure's `message` names what failed: the host, or the
 proxy and the `Settings.toml` that sets it. Its `reached` is `true` when Central answered, with an error status
