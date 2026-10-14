@@ -120,6 +120,16 @@ public class GrammarTest {
     }
 
     @Test
+    public void aContainerFlagBeforeTheNounNamesTheContainerOnlyForAMember() {
+        JsonObject leading = answer("ballerinax__kafka", "--client", "Producer", "method", "send", "-p", KAFKA);
+        Assert.assertEquals(leading.get("container").getAsString(), "Producer", leading.toString());
+        Assert.assertEquals(failure(2, null, "--client", "Producer", "client", "-p", KAFKA).field("message"),
+                "Unknown option '--client'.");
+        Assert.assertTrue(failure(2, null, "--client", "A", "method", "-p", KAFKA, "--client", "B").field("message")
+                .endsWith(" is given both before the noun and after it."));
+    }
+
+    @Test
     public void aMethodListingLeavesResourcesToResourceAndAResourceListingLeavesMethodsToMethod() {
         JsonObject methods = answer("ballerina__http", "method", "-p", "ballerina/http", "--client", "Client");
         Assert.assertFalse(methods.has("resources"), methods.toString());
