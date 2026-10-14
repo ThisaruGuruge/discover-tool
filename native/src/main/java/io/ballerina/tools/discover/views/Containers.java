@@ -444,7 +444,19 @@ public final class Containers {
                 return misplaced.get();
             }
         }
-        String search = loaded.command(Command.SEARCH, PathTree.plainSelector(token)).text();
+        String keyword = token;
+        if (resource) {
+            Optional<String> segment = PathTree.splitPath(PathTree.plainSelector(token)).stream()
+                    .filter(word -> !word.isEmpty() && !word.startsWith(PathTree.PARAMETER))
+                    .findFirst();
+            if (segment.isEmpty()) {
+                String listing = loaded.command(Command.RESOURCE).text();
+                return loaded.symbolNotFound(options.selectors(), message,
+                        "List the resource methods: " + Failure.quoted(listing) + ".", listing);
+            }
+            keyword = segment.get();
+        }
+        String search = loaded.command(Command.SEARCH, PathTree.plainSelector(keyword)).text();
         return loaded.symbolNotFound(options.selectors(), message,
                 "Search the package for it: " + Failure.quoted(search) + ".", search);
     }
@@ -1310,7 +1322,7 @@ public final class Containers {
     }
 
     private static int literalDepth(List<String> path) {
-        return (int) path.stream().filter(segment -> !segment.startsWith(":")).count();
+        return (int) path.stream().filter(segment -> !segment.startsWith(PathTree.PARAMETER)).count();
     }
 
     // Keyed by FULL path: literal segments alone are ambiguous (repos/branches), and a parameter node can carry

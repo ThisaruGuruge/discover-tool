@@ -319,6 +319,14 @@ public class GrammarTest {
     }
 
     @Test
+    public void aResourceMissedAmongSeveralContainersSearchesItsFirstSegmentOrListsTheResources() {
+        CliTest.Capture slash = failure(1, "ballerina__http", "resource", "/", "get", "-p", "ballerina/http");
+        Assert.assertEquals(slash.field("command"), "bal discover resource -p ballerina/http", slash.stderr());
+        CliTest.Capture typo = failure(1, "ballerina__http", "resource", ":id/nope", "get", "-p", "ballerina/http");
+        Assert.assertEquals(typo.field("command"), "bal discover search nope -p ballerina/http", typo.stderr());
+    }
+
+    @Test
     public void aMethodAskedOfAPackageWithOnlyResourcesPointsAtTheResources() {
         CliTest.Capture none = failure(1, "ballerinax__github", "method", "-p", GITHUB);
         Assert.assertEquals(none.field("command"), "bal discover resource -p " + GITHUB, none.stderr());
