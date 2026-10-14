@@ -428,10 +428,8 @@ public final class Cli {
                 search);
     }
 
-    /**
-     * An old bucket name or a plural typed as the noun ({@code funcs}, {@code methods}): the same command with the
-     * noun it meant, or {@code null}. Read off argv before parsing, since the noun decides which flags parse.
-     */
+    // An old bucket name or a plural typed as the noun: the same command with the noun it meant. Read off argv
+    // before parsing, since the noun decides which flags parse.
     private static Failure misnamedNoun(List<String> argv) {
         Commands.Grammar probe = Commands.Grammar.create();
         int at = firstWord(argv, valueOptions(probe));
