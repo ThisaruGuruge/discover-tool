@@ -29,6 +29,7 @@ case-insensitive part of the name.
 With no version after the package, the one your project's Dependencies.toml locks is
 read (found from the current directory up), else Central's latest.
 Exit codes: 0 an answer, 1 a failure, 2 a usage error.
+Flags may come anywhere: before the package, after it or between names.
 
   --output json|text      Override the TTY-detected default: human text at an
                           interactive terminal, JSON otherwise.

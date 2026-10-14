@@ -46,7 +46,8 @@ final class Usage {
                 .append("\n").append(UsageRenderer.prose(BUCKETS, 0))
                 .append("\n").append(UsageRenderer.prose(SEARCH, 0))
                 .append("\n").append(UsageRenderer.prose(VERSION, 0))
-                .append(UsageRenderer.prose(EXIT_CODES, 0));
+                .append(UsageRenderer.prose(EXIT_CODES, 0))
+                .append(UsageRenderer.prose(FLAGS, 0));
         String flags = UsageRenderer.flagList(grammar);
         if (!flags.isEmpty()) {
             text.append("\n").append(flags);
@@ -80,6 +81,8 @@ final class Usage {
     private static final String VERSION =
             "With no version after the package, the one your project's Dependencies.toml locks is read (found "
                     + "from the current directory up), else Central's latest.";
+
+    private static final String FLAGS = "Flags may come anywhere: before the package, after it or between names.";
 
     private static final String EXIT_CODES = "Exit codes: 0 an answer, 1 a failure, 2 a usage error.";
 

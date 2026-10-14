@@ -67,6 +67,8 @@ anything else fails, with the listing to choose from (see Paths and The contract
 | `-m, --module <module>` | Target a submodule instead of the default module, in every bucket including `readme`. The bare package lists the submodules it has. |
 | `--refresh`            | Ignore the cached payload (and any cached source-derived answer) and fetch it again. Only a fetch that succeeds replaces the cached copy; a failed one leaves it in place. |
 
+Flags may come anywhere: before the package, after it or between names (`bal discover --output json ballerinax/kafka`).
+
 ## Walkthrough
 
 The output below is real, produced against recorded Central payloads (Central-wide search against live
