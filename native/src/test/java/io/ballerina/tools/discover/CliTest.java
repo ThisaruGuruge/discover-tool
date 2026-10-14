@@ -1169,9 +1169,9 @@ public class CliTest {
             argv.addAll(narrowed);
             Capture capture = new Capture();
             int exitCode = Cli.run(argv, capture.streams(), options(graphqlCentral()));
-            Assert.assertEquals(exitCode, Failure.USAGE, argv + " -> " + capture.stdout());
+            Assert.assertEquals(exitCode, Failure.NOT_FOUND, argv + " -> " + capture.stdout());
             Assert.assertEquals(capture.stdout(), "");
-            Assert.assertEquals(capture.field("kind"), "validation");
+            Assert.assertEquals(capture.field("kind"), "symbol-not-found");
             Assert.assertTrue(capture.field("message").contains("publishes no readme for module dataloader"),
                     argv + " -> " + capture.stderr());
             // Under --module the loaded submodules are that module's children, never its siblings or the

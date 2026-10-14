@@ -112,14 +112,17 @@ public class ReadmeSectionsTest {
     }
 
     @Test
-    public void duplicateTitlesAreListedWithTheirNumbersNotReportedMissing() {
+    public void aTitleSeveralSectionsShareIsAmbiguousListingEachWithItsNumber() {
         LoadedPackage loaded = withReadme("# Example\none\n# Other\n# Example\ntwo");
         Result<DiscoverResult> view = Readme.render(loaded, new Readme.Options("example", null, 1));
-        Assert.assertTrue(view.isOk(), view.isOk() ? "" : view.failure().describe());
-        DiscoverResult.ReadmeSections listing = (DiscoverResult.ReadmeSections) view.value();
-        Assert.assertEquals(listing.sections().stream().map(DiscoverResult.ReadmeSections.Section::number).toList(),
-                List.of(1, 3));
-        Assert.assertTrue(listing.sections().get(1).command().endsWith("readme 3"), listing.sections().toString());
+        Failure.Ambiguous failure = (Failure.Ambiguous) view.failure();
+        Assert.assertEquals(failure.exitCode(), Failure.AMBIGUOUS);
+        Assert.assertEquals(failure.matchesKey(), Failure.SECTIONS);
+        Assert.assertEquals(failure.matches(), List.of(
+                new Failure.Match("1. Example", "bal discover ballerinax/kafka readme 1"),
+                new Failure.Match("3. Example", "bal discover ballerinax/kafka readme 3")));
+        Assert.assertTrue(failure.describe().contains("\"sections\":[{\"name\":\"1. Example\""),
+                failure.describe());
     }
 
     @Test
