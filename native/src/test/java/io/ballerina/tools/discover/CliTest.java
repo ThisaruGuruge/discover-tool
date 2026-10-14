@@ -862,7 +862,7 @@ public class CliTest {
         Capture text = run(List.of("function", "-p", "ballerinax/kafka"), "ballerinax__kafka", "4.6.5", true);
         Assert.assertTrue(text.stdout().startsWith("ballerinax/kafka:4.6.5 · function\n"
                         + "ballerinax/kafka has no functions.\n\n"
-                        + "Other buckets\n"
+                        + "Elsewhere in the package\n"
                         + "  client    3  bal discover client -p ballerinax/kafka\n"),
                 text.stdout());
     }

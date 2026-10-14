@@ -226,11 +226,15 @@ public class GrammarTest {
             Assert.assertEquals(Cli.run(List.of(noun, "--help"), help.streams(), CliTest.never()), 0, noun);
             Assert.assertTrue(help.stdout().startsWith("Usage: bal discover " + noun), help.stdout());
             Assert.assertTrue(help.stdout().contains("\nExamples:\n  bal discover " + noun), help.stdout());
+            Assert.assertFalse(help.stdout().contains("\n  --refresh "), "shared flags are the root's: " + noun);
+            Assert.assertTrue(help.stdout().endsWith("Every noun also takes the flags `bal discover --help` lists.\n"),
+                    help.stdout());
         }
+        Assert.assertTrue(root.stdout().contains("\n  --client|--class|--service <name> "), root.stdout());
         CliTest.Capture method = new CliTest.Capture();
         Assert.assertEquals(Cli.run(List.of("method", "-h"), method.streams(), CliTest.never()), 0);
         Assert.assertTrue(method.stdout().startsWith("Usage: bal discover method [<name>] -p <org>/<name>"
-                + "[:<version>] [--client <name>]"), method.stdout());
+                + "[:<version>]\n                    [--client|--class|--service <name>]"), method.stdout());
     }
 
     @DataProvider(name = "packageAsName")

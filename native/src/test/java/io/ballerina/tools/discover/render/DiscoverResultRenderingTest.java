@@ -733,7 +733,7 @@ public class DiscoverResultRenderingTest {
         Assert.assertEquals(TextRenderer.render(result), lines(
                 "This package has no functions.",
                 "",
-                "Other buckets",
+                "Elsewhere in the package",
                 "  client  3  bal discover client -p ballerinax/kafka",
                 "  class   4  bal discover class -p ballerinax/kafka"));
 

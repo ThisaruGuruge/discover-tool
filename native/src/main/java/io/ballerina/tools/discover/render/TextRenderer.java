@@ -548,7 +548,7 @@ public final class TextRenderer {
         layout.top((where.pkg() == null ? "This package" : where.pkg()) + " has no " + plural + ".");
         TextTable table = new TextTable(TextTable.Column.LEFT, TextTable.Column.RIGHT, TextTable.Column.LEFT);
         empty.elsewhere().forEach(other -> table.row(other.bucket(), String.valueOf(other.count()), other.command()));
-        layout.section("Other buckets", table);
+        layout.section("Elsewhere in the package", table);
         layout.warning(empty.warning());
     }
 

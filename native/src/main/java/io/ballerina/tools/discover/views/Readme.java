@@ -136,7 +136,7 @@ public final class Readme {
                 loaded.module() != null
                         ? "Read the default module's instead: `" + command(loaded.target(null))
                                 + "`. Or find another module's: `" + Command.overview(loaded.target(null))
-                                + "` lists the default module's buckets and its submodules."
+                                + "` lists what the default module declares and its submodules."
                         : loaded.submodules().isEmpty()
                                 ? "This package publishes no other module either."
                                 : "Check its other modules: `" + Command.overview(loaded.target(null)) + "`.");

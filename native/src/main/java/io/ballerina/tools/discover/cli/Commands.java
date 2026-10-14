@@ -61,6 +61,9 @@ final class Commands {
 
     static final String PACKAGE_LABEL = "<org>/<name>[:<version>]";
 
+    static final String OWNER_LABEL = "<name>";
+
+
     /**
      * @param line the root command line, every noun registered under it
      * @param root the root's values
@@ -141,15 +144,15 @@ final class Commands {
     /** The container a method or resource is declared by. */
     static final class Owners {
 
-        @CommandLine.Option(names = Command.CLIENT_FLAG, paramLabel = "<name>",
-                description = "The client that declares it. Optional when exactly one container does.")
+        @CommandLine.Option(names = Command.CLIENT_FLAG, paramLabel = OWNER_LABEL,
+                description = "The client that declares it.")
         String client;
 
-        @CommandLine.Option(names = Command.CLASS_FLAG, paramLabel = "<name>",
+        @CommandLine.Option(names = Command.CLASS_FLAG, paramLabel = OWNER_LABEL,
                 description = "The class that declares it.")
         String classOwner;
 
-        @CommandLine.Option(names = Command.SERVICE_FLAG, paramLabel = "<name>",
+        @CommandLine.Option(names = Command.SERVICE_FLAG, paramLabel = OWNER_LABEL,
                 description = "The service type that declares it.")
         String service;
     }
