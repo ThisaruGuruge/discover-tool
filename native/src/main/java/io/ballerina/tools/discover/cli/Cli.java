@@ -80,8 +80,6 @@ public final class Cli {
 
     private static final String OUTPUT_FLAG = "--output";
 
-    private static final String HELP_FLAG = "--help";
-
     static final int FAILED = 1;
 
     private static final int USAGE_ERROR = 2;
@@ -608,7 +606,7 @@ public final class Cli {
         }
 
         private String help() {
-            return Command.PREFIX + (noun == null ? "" : noun + " ") + HELP_FLAG;
+            return Command.PREFIX + (noun == null ? "" : noun + " ") + Commands.HELP_FLAG;
         }
 
         private int write(Failure failure, boolean pointToHelp) {

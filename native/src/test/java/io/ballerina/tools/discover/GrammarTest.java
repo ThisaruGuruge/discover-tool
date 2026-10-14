@@ -107,6 +107,17 @@ public class GrammarTest {
     }
 
     @Test
+    public void flagsBeforeTheNounReadTheSameAsAfterIt() {
+        JsonObject leading = answer("ballerinax__kafka", "-p", KAFKA, "method", "send");
+        Assert.assertEquals(leading, answer("ballerinax__kafka", "method", "send", "-p", KAFKA));
+        CliTest.Capture text = new CliTest.Capture();
+        Assert.assertEquals(Cli.run(List.of("--output", "text", "--package=" + KAFKA, "client", "Producer"),
+                text.streams(), central("ballerinax__kafka")), 0, text.stderr());
+        Assert.assertTrue(text.stdout().contains("Producer"), text.stdout());
+        Assert.assertFalse(text.stdout().startsWith("{"), text.stdout());
+    }
+
+    @Test
     public void aMethodListingLeavesResourcesToResourceAndAResourceListingLeavesMethodsToMethod() {
         JsonObject methods = answer("ballerina__http", "method", "-p", "ballerina/http", "--client", "Client");
         Assert.assertFalse(methods.has("resources"), methods.toString());

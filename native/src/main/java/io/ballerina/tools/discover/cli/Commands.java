@@ -49,6 +49,9 @@ final class Commands {
 
     static final String VERSION_FLAG = "--version";
 
+    static final String HELP_FLAG = "--help";
+    static final String HELP_SHORT = "-h";
+
     static final String JSON_OUTPUT = "json";
     static final String TEXT_OUTPUT = "text";
 
@@ -86,7 +89,7 @@ final class Commands {
     /** The flags every noun takes. */
     static final class Flags {
 
-        @CommandLine.Option(names = {"-h", "--help"}, usageHelp = true, description = "This text.")
+        @CommandLine.Option(names = {HELP_SHORT, HELP_FLAG}, usageHelp = true, description = "This text.")
         boolean help;
 
         @CommandLine.Option(names = "--output", paramLabel = JSON_OUTPUT + "|" + TEXT_OUTPUT,
