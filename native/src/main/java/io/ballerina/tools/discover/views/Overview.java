@@ -73,8 +73,9 @@ public final class Overview {
 
     public static DiscoverResult.Overview of(LoadedPackage loaded) {
         Map<Surface.Scope, List<DiscoverResult.Overview.Row>> rows = new LinkedHashMap<>();
+        Map<String, Integer> uses = ReadmeUsage.counts(loaded);
         for (Surface.Scope scope : Surface.Scope.values()) {
-            List<DiscoverResult.Overview.Row> all = ReadmeUsage.ranked(rowsOf(loaded, scope), loaded.readme());
+            List<DiscoverResult.Overview.Row> all = ReadmeUsage.ranked(rowsOf(loaded, scope), uses);
             if (!all.isEmpty()) {
                 rows.put(scope, all);
             }

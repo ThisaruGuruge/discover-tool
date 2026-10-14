@@ -81,7 +81,7 @@ public class OverviewOrderTest {
 
     @Test
     public void anInlineCodeSpanIsAUse() {
-        Assert.assertEquals(rows(List.of("Alpha", "Beta", "Status"), "`Alpha` and `Alpha`, then `http:Status`."),
+        Assert.assertEquals(rows(List.of("Alpha", "Beta", "Status"), "`Alpha` and `Alpha`, then `pkg:Status`."),
                 List.of("Alpha", "Status", "Beta"));
     }
 
@@ -89,6 +89,24 @@ public class OverviewOrderTest {
     public void aTildeFenceIsCode() {
         Assert.assertEquals(rows(List.of("Alpha", "Beta"), "Prose.\n~~~ballerina\nBeta b = new;\n~~~\nAlpha."),
                 List.of("Beta", "Alpha"));
+    }
+
+    @Test
+    public void anotherModulesQualifiedNameIsNotAUse() {
+        Assert.assertEquals(classRows("`jdbc:Gamma` and `jdbc:Gamma`, then `pkg:Delta`."),
+                List.of("Delta", "Alpha", "Beta", "Gamma"));
+    }
+
+    @Test
+    public void aSubmoduleCountsItsOwnPrefix() {
+        Payload payload = Payload.pkg();
+        payload.with("classes", CLASSES.stream().map(name -> Decl.client(name, Decl.method("run")))
+                .toArray(Decl[]::new));
+        Library library = Pipeline.build(payload.module());
+        LoadedPackage sub = new LoadedPackage(QualifiedName.parse("test/pkg").value(), FixtureCorpus.FIXTURE_VERSION,
+                library, Optional.of("`sub:Gamma`, `pkg:Beta` and `pkg:Beta`."), "sub", List.of(), List.of("sub"),
+                null, null, () -> library, Map::of);
+        Assert.assertEquals(names(Overview.of(sub)), List.of("Gamma", "Alpha", "Beta", "Delta"));
     }
 
     @Test
@@ -107,9 +125,10 @@ public class OverviewOrderTest {
                 List.of("Gamma", "Beta", "Alpha", "Delta"));
         String text = TextRenderer.render(overview, new TextRenderer.Context("test/pkg", null, List.of(), null, null,
                 null));
-        Assert.assertTrue(text.indexOf("  Gamma ") < text.indexOf("  Beta ")
-                && text.indexOf("  Beta ") < text.indexOf("  Alpha ")
-                && text.indexOf("  Alpha ") < text.indexOf("  Delta "), text);
+        List<Integer> places = List.of("Gamma", "Beta", "Alpha", "Delta").stream()
+                .map(name -> text.indexOf("  " + name + " ")).toList();
+        Assert.assertTrue(places.get(0) >= 0, text);
+        Assert.assertEquals(places, places.stream().sorted().toList(), text);
     }
 
     @Test
