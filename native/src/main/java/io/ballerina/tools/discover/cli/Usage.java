@@ -85,8 +85,9 @@ final class Usage {
     private static final String FLAGS = "Flags may come anywhere: before the package, after it or between names.";
 
     private static final String EXIT_CODES = "Exit codes: 0 an answer (an empty search or --filter too), 1 not "
-            + "found, 2 a usage error, 3 ambiguous (the matches are listed), 4 Central unreachable (retry), 5 a bad "
-            + "answer from Central, 6 an internal error.";
+            + "found (a package, name or page), 2 a usage error, 3 ambiguous (the matches are listed), 4 Central "
+            + "unavailable for now (retry later), 5 an answer from Central a retry will not change, 6 an internal "
+            + "error.";
 
     private static final String BUCKETS =
             "Buckets (the word after the package): " + String.join(", ", Commands.BUCKETS)

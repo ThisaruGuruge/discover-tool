@@ -516,7 +516,7 @@ public class CacheTest {
         Capture capture = new Capture();
         int exitCode = Cli.run(List.of(PKG), capture.streams(),
                 options(FakeTransport.always(FakeTransport.status(503)), cache).maxAttempts(1).build());
-        Assert.assertEquals(exitCode, Failure.BAD_ANSWER);
+        Assert.assertEquals(exitCode, Failure.UNAVAILABLE);
         Assert.assertEquals(capture.stdout(), "");
         Assert.assertTrue(capture.stderr().contains("\"kind\":\"upstream\""));
     }
@@ -690,7 +690,7 @@ public class CacheTest {
         HttpOptions http = options(transport, cache).clock(() -> 2_000).maxAttempts(1).build();
 
         Capture capture = new Capture();
-        Assert.assertEquals(Cli.run(List.of("ballerinax/aws.auth"), capture.streams(), http), Failure.BAD_ANSWER);
+        Assert.assertEquals(Cli.run(List.of("ballerinax/aws.auth"), capture.streams(), http), Failure.UNAVAILABLE);
         Assert.assertEquals(capture.stdout(), "");
         Assert.assertEquals(transport.urls(),
                 List.of(CentralClient.CENTRAL_BASE_URL + "docs/ballerinax/aws.auth/1.0.2"));
@@ -815,7 +815,7 @@ public class CacheTest {
         HttpOptions down = options(FakeTransport.always(FakeTransport.status(503)), cache).maxAttempts(1).build();
         Capture refreshed = new Capture();
         Assert.assertEquals(Cli.run(List.of(PKG, "client", "--refresh"), refreshed.streams(), down),
-                Failure.BAD_ANSWER);
+                Failure.UNAVAILABLE);
         Assert.assertTrue(refreshed.stderr().contains("\"kind\":\"upstream\""), refreshed.stderr());
         Assert.assertEquals(readEntry(root), before, "a failed refresh must leave the cached payload in place");
 
@@ -851,7 +851,7 @@ public class CacheTest {
         up[0] = false;
         List<String> refresh = new ArrayList<>(argv);
         refresh.add("--refresh");
-        Assert.assertEquals(Cli.run(refresh, new Capture().streams(), http), Failure.BAD_ANSWER);
+        Assert.assertEquals(Cli.run(refresh, new Capture().streams(), http), Failure.UNAVAILABLE);
         Assert.assertEquals(cache.readModuleDocs(key), before, "a failed refresh must leave the module page");
 
         Capture offline = new Capture();

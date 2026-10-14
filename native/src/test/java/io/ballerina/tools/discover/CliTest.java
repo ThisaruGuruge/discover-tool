@@ -1305,12 +1305,14 @@ public class CliTest {
 
         Capture oneGroupedPage = new Capture();
         Assert.assertEquals(Cli.run(List.of("ballerinax/github", "client", "Client", "--page", "2"),
-                oneGroupedPage.streams(), centralFor(github, FixtureCorpus.FIXTURE_VERSION.text())), Failure.USAGE);
+                oneGroupedPage.streams(), centralFor(github, FixtureCorpus.FIXTURE_VERSION.text())),
+                Failure.NOT_FOUND);
         Assert.assertTrue(oneGroupedPage.field("message").contains("on 1 page"), oneGroupedPage.stderr());
 
         Capture emptySearch = new Capture();
         Assert.assertEquals(Cli.run(List.of("ballerinax/github", "client", "Client", "--filter", "zzzq", "--page",
-                "2"), emptySearch.streams(), centralFor(github, FixtureCorpus.FIXTURE_VERSION.text())), Failure.USAGE);
+                "2"), emptySearch.streams(), centralFor(github, FixtureCorpus.FIXTURE_VERSION.text())),
+                Failure.NOT_FOUND);
         Assert.assertEquals(emptySearch.field("message"),
                 "Page 2 is out of range: this listing has 0 entries on 1 page.");
     }
@@ -1321,14 +1323,15 @@ public class CliTest {
         Capture beyond = new Capture();
         Assert.assertEquals(Cli.run(List.of("ballerinax/twilio", "client", "Client", "--page", "99"),
                 beyond.streams(), centralFor("ballerinax__twilio", FixtureCorpus.FIXTURE_VERSION.text())),
-                Failure.USAGE);
+                Failure.NOT_FOUND);
+        Assert.assertEquals(beyond.field("kind"), "page-not-found");
         Assert.assertEquals(beyond.field("qualified"), "ballerinax/twilio");
         Assert.assertEquals(beyond.field("version"), FixtureCorpus.FIXTURE_VERSION.text());
         Assert.assertEquals(beyond.field("command"), "bal discover ballerinax/twilio client Client --page 5");
 
         Capture single = new Capture();
         Assert.assertEquals(Cli.run(List.of("ballerinax/github", "client", "Client", "--filter", "zzzq", "--page",
-                "2"), single.streams(), centralFor(github, FixtureCorpus.FIXTURE_VERSION.text())), Failure.USAGE);
+                "2"), single.streams(), centralFor(github, FixtureCorpus.FIXTURE_VERSION.text())), Failure.NOT_FOUND);
         Assert.assertTrue(single.field("suggestion").startsWith("This listing has only one page"),
                 single.stderr());
         Assert.assertEquals(single.field("command"), "bal discover ballerinax/github client Client --filter zzzq");
@@ -1442,7 +1445,7 @@ public class CliTest {
         Capture capture = new Capture();
         int exitCode = Cli.run(List.of("ballerina/graphql", "--module", "subgraph"), capture.streams(),
                 options(transport));
-        Assert.assertEquals(exitCode, Failure.BAD_ANSWER);
+        Assert.assertEquals(exitCode, Failure.UNAVAILABLE);
         Assert.assertEquals(capture.field("kind"), "upstream", capture.stderr());
     }
 

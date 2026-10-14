@@ -125,9 +125,9 @@ public final class SearchCentral {
         String command = command(keywords);
         if (page > pages) {
             String fixed = pages == 1 ? command : command + " --page " + pages;
-            return Result.err(new Failure.Validation("Page " + page + " is out of range: Central's answer has "
+            return Result.err(new Failure.PageNotFound("Page " + page + " is out of range: Central's answer has "
                     + pages + (pages == 1 ? " page." : " pages."),
-                    "Pass a page from 1 to " + pages + ", e.g. " + Failure.quoted(fixed) + ".", fixed));
+                    "Pass a page from 1 to " + pages + ", e.g. " + Failure.quoted(fixed) + ".", fixed, page, pages));
         }
         List<DiscoverResult.CentralSearch.PackageHit> packageHits = packages.value().items().stream()
                 .map(row -> new DiscoverResult.CentralSearch.PackageHit(row.org() + "/" + row.name(), row.version(),
