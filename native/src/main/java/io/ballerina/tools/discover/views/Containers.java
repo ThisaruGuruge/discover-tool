@@ -266,7 +266,7 @@ public final class Containers {
         List<String> names = owners.stream().map(Surface.Container::plainName).toList();
         return declaredBySeveral(loaded, selectors,
                 named(typed) + " is declared by " + Texts.and(names) + " in " + loaded.place() + ".",
-                owners.stream().map(owner -> new Failure.Owner(owner.plainName(),
+                owners.stream().map(owner -> new Failure.Match(owner.plainName(),
                         baseCommand(loaded, owner.scope(), owner)
                                 + shellWords(selectors.subList(0, consumed(owner, selectors)))
                                 + filterArgument(options)))
@@ -276,13 +276,13 @@ public final class Containers {
     // Each owner's command is the answer, so the failure lists them and quotes none; past the entry ceiling, the
     // package's search for the name lists the rest.
     private static Failure declaredBySeveral(LoadedPackage loaded, List<String> requested, String message,
-            List<Failure.Owner> owners) {
+            List<Failure.Match> owners) {
         String search = loaded.command() + " " + Search.BUCKET + " " + shellWord(requested.get(0));
         String suggestion = owners.size() > MAX_ENTRIES
                 ? "Name the one you mean; the first " + MAX_ENTRIES + " of " + owners.size() + " are below, and "
                         + Failure.quoted(search) + " lists them all:"
                 : "Name the one you mean:";
-        return loaded.declaredBySeveral(requested, message, suggestion,
+        return loaded.ambiguous(requested, message, suggestion, Failure.OWNERS,
                 owners.subList(0, Math.min(owners.size(), MAX_ENTRIES)));
     }
 
@@ -355,7 +355,7 @@ public final class Containers {
         List<String> names = owners.keySet().stream().map(Surface.Container::plainName).toList();
         return Optional.of(declaredBySeveral(loaded, List.of(token),
                 message.substring(0, message.length() - 1) + "; it is a method of " + Texts.and(names) + ".",
-                owners.keySet().stream().map(owner -> new Failure.Owner(owner.plainName(),
+                owners.keySet().stream().map(owner -> new Failure.Match(owner.plainName(),
                         baseCommand(loaded, owner.scope(), owner) + shellWords(selectors) + filterArgument(options)))
                         .toList()));
     }

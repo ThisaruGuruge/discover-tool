@@ -28,11 +28,10 @@ import java.util.List;
 /**
  * Failures are values, not thrown classes.
  *
- * <p>The question every failure has to answer is "what does the agent reading this do next". The
- * answer is carried by {@link #kind()} and {@link #describe()}, not by the exit code, which only tells a
- * malformed command line (2) from every other failure (1), so the discriminator has to be in the JSON. A sealed
- * hierarchy makes both switches exhaustive with no {@code default}, so a new failure mode fails the
- * build until someone names it and decides what it tells the caller.
+ * <p>The question every failure has to answer is "what does the agent reading this do next". The exit code
+ * ({@link #exitCode()}) answers it coarsely, one code per next action; {@link #kind()} and {@link #describe()}
+ * carry the rest. A sealed hierarchy makes every switch exhaustive with no {@code default}, so a new failure mode
+ * fails the build until someone names it and decides what it tells the caller.
  *
  * @since 0.1.0
  */
@@ -171,25 +170,60 @@ public sealed interface Failure {
      * @param suggestion what to try next
      * @param command the command the suggestion quotes, ready to run, or {@code null} when it quotes none
      * @param candidates every entry of a listing no command prints — a readme's sections — or empty
-     * @param owners when what was named is declared by several containers, each of them with the command that opens
-     *     what was named on it — there is then no single command to run, so {@code command} is {@code null}
      */
     record SymbolNotFound(String qualified, String version, String module, List<String> requested, String message,
-            String suggestion, String command, List<String> candidates, List<Owner> owners) implements Failure {
-
-        public SymbolNotFound(String qualified, String version, String module, List<String> requested,
-                String message, String suggestion, String command, List<String> candidates) {
-            this(qualified, version, module, requested, message, suggestion, command, candidates, List.of());
-        }
-    }
+            String suggestion, String command, List<String> candidates) implements Failure { }
 
     /**
-     * One of several containers that declare what was named.
+     * What was named matches more than one thing, so there is no single command to run: each match comes with the
+     * command that opens it.
      *
-     * @param name the container's name
-     * @param command the command that opens what was named on it
+     * @param qualified the {@code org/name} that was searched
+     * @param version the version that was searched
+     * @param module the {@code --module} that was searched, or {@code null} for the package's default module
+     * @param requested the name (or names) the caller asked for
+     * @param message what matched more than once, as one sentence
+     * @param suggestion what to do next
+     * @param matchesKey the JSON field the matches are listed under: {@link #OWNERS} or {@link #SECTIONS}
+     * @param matches each thing that was matched, with the command that opens it
      */
-    record Owner(String name, String command) { }
+    record Ambiguous(String qualified, String version, String module, List<String> requested, String message,
+            String suggestion, String matchesKey, List<Match> matches) implements Failure { }
+
+    /**
+     * One of several things that match what was named: a container that declares it, or a readme section.
+     *
+     * @param name the match's name
+     * @param command the command that opens it
+     */
+    record Match(String name, String command) { }
+
+    /** {@link Ambiguous#matchesKey()} for the containers that each declare what was named. */
+    String OWNERS = "owners";
+
+    /** {@link Ambiguous#matchesKey()} for the readme sections a title matches. */
+    String SECTIONS = "sections";
+
+    /** The exit code of an answer. */
+    int ANSWERED = 0;
+
+    /** The package, version, module or name does not exist; the request itself was well formed. */
+    int NOT_FOUND = 1;
+
+    /** The command line is malformed. */
+    int USAGE = 2;
+
+    /** What was named matches more than one thing. */
+    int AMBIGUOUS = 3;
+
+    /** Central could not be reached in time; the same command may work on a retry. */
+    int UNAVAILABLE = 4;
+
+    /** Central answered with an error status, or with a body this tool cannot read. */
+    int BAD_ANSWER = 5;
+
+    /** A defect in this tool. */
+    int INTERNAL_ERROR = 6;
 
     /**
      * A defect in this tool: something in the pipeline threw.
@@ -212,7 +246,7 @@ public sealed interface Failure {
             + "build already pulled the package — those are the signatures Central publishes. Never "
             + "fall back to a remembered signature.";
 
-    /** How far a failure's listed details (candidates, owners, issues) sit under its suggestion. */
+    /** How far a failure's listed details (candidates, matches, issues) sit under its suggestion. */
     String DETAIL_INDENT = "    ";
 
     /** The spaces between an owner's name column and its command. */
@@ -237,7 +271,26 @@ public sealed interface Failure {
             case Timeout ignored -> "timeout";
             case SchemaDrift ignored -> "schema-drift";
             case SymbolNotFound ignored -> "symbol-not-found";
+            case Ambiguous ignored -> "ambiguous";
             case Internal ignored -> "internal";
+        };
+    }
+
+    /**
+     * The process exit code: one per action the caller takes next. An {@link Upstream} that never got a status
+     * line back — the connection, DNS or TLS failed — is worth a retry like a {@link Timeout}; one with a status,
+     * or a body this tool cannot read, is Central's (or the proxy's) answer and is not.
+     */
+    default int exitCode() {
+        return switch (this) {
+            case PackageNotFound ignored -> NOT_FOUND;
+            case SymbolNotFound ignored -> NOT_FOUND;
+            case Validation ignored -> USAGE;
+            case Ambiguous ignored -> AMBIGUOUS;
+            case Timeout ignored -> UNAVAILABLE;
+            case Upstream f -> !f.reached() && f.status() == null ? UNAVAILABLE : BAD_ANSWER;
+            case SchemaDrift ignored -> BAD_ANSWER;
+            case Internal ignored -> INTERNAL_ERROR;
         };
     }
 
@@ -254,6 +307,7 @@ public sealed interface Failure {
             case SchemaDrift f -> "Central's answer for " + coordinate(f.qualified(), f.version(), f.module())
                     + " has a shape this tool does not understand; Central's docs format may have changed.";
             case SymbolNotFound f -> f.message();
+            case Ambiguous f -> f.message();
             case Internal f -> "Unexpected internal failure: " + f.message() + (f.message().endsWith(".") ? "" : ".");
         };
     }
@@ -271,10 +325,10 @@ public sealed interface Failure {
             lines.add("  candidates:");
             f.candidates().forEach(candidate -> lines.add(DETAIL_INDENT + candidate));
         }
-        if (this instanceof SymbolNotFound f) {
-            int width = f.owners().stream().mapToInt(owner -> owner.name().length()).max().orElse(0);
-            f.owners().forEach(owner -> lines.add(DETAIL_INDENT + owner.name()
-                    + " ".repeat(width - owner.name().length() + COLUMN_GAP) + owner.command()));
+        if (this instanceof Ambiguous f) {
+            int width = f.matches().stream().mapToInt(match -> match.name().length()).max().orElse(0);
+            f.matches().forEach(match -> lines.add(DETAIL_INDENT + match.name()
+                    + " ".repeat(width - match.name().length() + COLUMN_GAP) + match.command()));
         }
         return String.join("\n", lines);
     }
@@ -353,16 +407,19 @@ public sealed interface Failure {
                 if (!f.candidates().isEmpty()) {
                     json.add("candidates", strings(f.candidates()));
                 }
-                if (!f.owners().isEmpty()) {
-                    JsonArray owners = new JsonArray();
-                    f.owners().forEach(owner -> {
-                        JsonObject row = new JsonObject();
-                        row.addProperty("name", owner.name());
-                        row.addProperty("command", owner.command());
-                        owners.add(row);
-                    });
-                    json.add("owners", owners);
-                }
+            }
+            case Ambiguous f -> {
+                coordinates(json, f.qualified(), f.version(), f.module());
+                json.add("requested", strings(f.requested()));
+                json.addProperty("suggestion", f.suggestion());
+                JsonArray matches = new JsonArray();
+                f.matches().forEach(match -> {
+                    JsonObject row = new JsonObject();
+                    row.addProperty("name", match.name());
+                    row.addProperty("command", match.command());
+                    matches.add(row);
+                });
+                json.add(f.matchesKey(), matches);
             }
             case Internal f -> json.addProperty("suggestion", f.suggestion());
         }

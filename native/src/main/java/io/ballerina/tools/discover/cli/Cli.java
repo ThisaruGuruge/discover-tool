@@ -59,10 +59,9 @@ import java.util.stream.Collectors;
  *   <li>stderr — on failure, one {@link Failure} and nothing else, in the run's output mode: one JSON object,
  *       or {@code error: <message>} with the suggestion indented below it
  *   <li>exit 0 — success, and stdout is COMPLETE
- *   <li>exit 2 — a usage error: the command line itself is malformed, so nothing was looked up. In text mode
- *       the failure is followed by the synopsis and a pointer to {@code --help}
- *   <li>exit 1 — every other failure. What to do next is {@code kind} and {@code suggestion} in the failure,
- *       never the code
+ *   <li>any other exit — a failure, one code per action the caller takes next ({@link Failure#exitCode()}). A usage
+ *       error found before anything is looked up is followed, in text mode, by the synopsis and a pointer to
+ *       {@code --help}
  * </ul>
  *
  * <p>{@code bal discover <org>/<name>[:<version>] [bucket] [name ...]} is one picocli command, and {@code bucket} a
@@ -82,10 +81,6 @@ public final class Cli {
     private static final String HELP = Coordinate.COMMAND + "--help";
 
     private static final String RUN_HELP = "Run `" + HELP + "` for usage.";
-
-    static final int FAILED = 1;
-
-    private static final int USAGE_ERROR = 2;
 
     private static final int FIRST_PAGE = 1;
 
@@ -127,7 +122,7 @@ public final class Cli {
             List<String> argv, Streams streams, HttpOptions http, String projectDir, boolean interactive) {
         if (argv.isEmpty()) {
             streams.out().accept(Usage.root());
-            return 0;
+            return Failure.ANSWERED;
         }
 
         Commands.Grammar grammar = Commands.Grammar.create();
@@ -149,7 +144,7 @@ public final class Cli {
         // complete" is what a redirecting caller relies on.
         if (parsed.isUsageHelpRequested()) {
             streams.out().accept(Usage.root());
-            return 0;
+            return Failure.ANSWERED;
         }
 
         Commands.Root root = grammar.root();
@@ -214,7 +209,7 @@ public final class Cli {
         JsonRenderer.Where about = new JsonRenderer.Where(qualified.qualified(), read, root.module);
         streams.out().accept((json ? JsonRenderer.render(answer.value(), about)
                 : TextRenderer.render(answer.value(), where)) + "\n");
-        return 0;
+        return Failure.ANSWERED;
     }
 
     private static int searchCentral(Commands.Root root, Streams streams, HttpOptions http, boolean json,
@@ -238,7 +233,7 @@ public final class Cli {
                 List.of(SearchCentral.VERB, String.join(" ", keywords)), null, null, null);
         streams.out().accept((json ? JsonRenderer.render(found.value())
                 : TextRenderer.render(found.value(), where)) + "\n");
-        return 0;
+        return Failure.ANSWERED;
     }
 
     private static Result<DiscoverResult> answer(
@@ -494,7 +489,7 @@ public final class Cli {
 
     private static int fail(Failure failure, Streams streams, boolean json) {
         streams.errorOut().accept(failure.describe(json) + "\n");
-        return FAILED;
+        return failure.exitCode();
     }
 
     private record UsageErrors(Commands.Grammar grammar, Streams streams, boolean json) {
@@ -511,7 +506,7 @@ public final class Cli {
             String usage = json ? "" : "\n" + UsageRenderer.usageLine(grammar)
                     + (pointToHelp ? "\nRun `" + HELP + "` for details." : "");
             streams.errorOut().accept(failure.describe(json) + usage + "\n");
-            return USAGE_ERROR;
+            return failure.exitCode();
         }
     }
 }

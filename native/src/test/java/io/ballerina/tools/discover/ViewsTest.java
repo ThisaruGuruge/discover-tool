@@ -412,26 +412,24 @@ public class ViewsTest {
         for (String typed : List.of("commit", "'commit")) {
             Result<DiscoverResult> answer = Containers.render(kafka, Surface.Scope.CLIENT,
                     new Containers.Options(List.of(typed)));
-            Failure.SymbolNotFound failure = (Failure.SymbolNotFound) answer.failure();
+            Failure.Ambiguous failure = (Failure.Ambiguous) answer.failure();
             Assert.assertEquals(failure.message(), "'commit' is declared by Caller and Consumer in "
                     + kafka.label() + ".");
-            Assert.assertNull(failure.command());
-            Assert.assertEquals(failure.candidates(), List.of());
-            Assert.assertEquals(failure.owners(), List.of(
-                    new Failure.Owner("Caller", "bal discover ballerinax/kafka client Caller commit"),
-                    new Failure.Owner("Consumer", "bal discover ballerinax/kafka client Consumer commit")));
+            Assert.assertEquals(failure.matchesKey(), Failure.OWNERS);
+            Assert.assertEquals(failure.matches(), List.of(
+                    new Failure.Match("Caller", "bal discover ballerinax/kafka client Caller commit"),
+                    new Failure.Match("Consumer", "bal discover ballerinax/kafka client Consumer commit")));
         }
     }
 
     @Test
     public void aMemberOfSeveralContainersAskedInAnotherBucketListsEachOwnerAndQuotesNoOneCommand() {
         LoadedPackage kafka = FixtureCorpus.loadedFixture("ballerinax__kafka");
-        Failure.SymbolNotFound failure = (Failure.SymbolNotFound) Containers.render(kafka, Surface.Scope.CLASS,
+        Failure.Ambiguous failure = (Failure.Ambiguous) Containers.render(kafka, Surface.Scope.CLASS,
                 new Containers.Options(List.of("close"))).failure();
         Assert.assertEquals(failure.message(), "'close' is not a class in " + kafka.label()
                 + "; it is a method of Consumer and Producer.");
-        Assert.assertNull(failure.command());
-        Assert.assertEquals(failure.owners().stream().map(Failure.Owner::name).toList(),
+        Assert.assertEquals(failure.matches().stream().map(Failure.Match::name).toList(),
                 List.of("Consumer", "Producer"));
         Assert.assertEquals(failure.describeText(), "error: " + failure.message() + "\n  Name the one you mean:\n"
                 + "    Consumer  bal discover ballerinax/kafka client Consumer close\n"
@@ -669,9 +667,9 @@ public class ViewsTest {
     @Test
     public void aPathSeveralContainersHoldNamesEachContainer() {
         LoadedPackage http = FixtureCorpus.loadedFixture("ballerina__http");
-        Failure.SymbolNotFound several = (Failure.SymbolNotFound) Containers.render(http, Surface.Scope.CLIENT,
+        Failure.Ambiguous several = (Failure.Ambiguous) Containers.render(http, Surface.Scope.CLIENT,
                 new Containers.Options(List.of(":...path", "get", "extra"))).failure();
-        Assert.assertEquals(several.owners().size(), 6, several.owners().toString());
+        Assert.assertEquals(several.matches().size(), 6, several.matches().toString());
         Assert.assertTrue(ownerCommands(several).contains("bal discover ballerina/http client Client :...path get"));
         Result<DiscoverResult> answer = Containers.render(http, Surface.Scope.CLIENT,
                 new Containers.Options(List.of("Client", ":...path", "get", "extra")));
@@ -1326,7 +1324,7 @@ public class ViewsTest {
 
         Result<DiscoverResult> send = Containers.render(loaded, Surface.Scope.CLIENT,
                 new Containers.Options(List.of("send")));
-        Failure.SymbolNotFound both = (Failure.SymbolNotFound) send.failure();
+        Failure.Ambiguous both = (Failure.Ambiguous) send.failure();
         Assert.assertEquals(ownerCommands(both), List.of("bal discover test/pkg client Client send",
                 "bal discover test/pkg client Other send"));
         Assert.assertEquals(as(DiscoverResult.Signature.class, render(loaded, Surface.Scope.CLIENT,
@@ -1355,14 +1353,14 @@ public class ViewsTest {
         LoadedPackage loaded = fromPayload(payload);
         // `foo get` is a path and its accessor on Paths, and `foo` a remote method of Methods: each owner's
         // command carries what that owner reads, so each runs.
-        Failure.SymbolNotFound both = (Failure.SymbolNotFound) Containers.render(loaded, Surface.Scope.CLIENT,
+        Failure.Ambiguous both = (Failure.Ambiguous) Containers.render(loaded, Surface.Scope.CLIENT,
                 new Containers.Options(List.of("foo", "get", "extra"))).failure();
         Assert.assertEquals(ownerCommands(both), List.of("bal discover test/pkg client Methods foo",
                 "bal discover test/pkg client Paths foo get"));
     }
 
-    private static List<String> ownerCommands(Failure.SymbolNotFound failure) {
-        return failure.owners().stream().map(Failure.Owner::command).toList();
+    private static List<String> ownerCommands(Failure.Ambiguous failure) {
+        return failure.matches().stream().map(Failure.Match::command).toList();
     }
 
     /** Sanity: the corpus still has the path shapes these tests reason about. */
