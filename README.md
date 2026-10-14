@@ -103,7 +103,9 @@ The overview stays inside the 40-row ceiling: a bucket shows at most 10 rows, th
 row each, and submodules are never cut (no other answer lists them). If that still comes to more than 40 rows,
 the section showing the most gives up one row at a time (the later bucket on a tie) until it fits. A cut
 section ends with `... N more: <command>`, the command that lists the bucket whole; in JSON each section has
-`shown`, `total` and that `command`. `ballerina/http`, the largest overview measured, shows 10 of 10 clients,
+`shown`, `total` and that `command`. A section's rows are ordered by how often the module's readme uses
+each name (a whole identifier, in code or prose: `http:Client` uses `Client`, `ClientConfiguration` does not), most
+used first; ties and names it never uses stay alphabetical. `ballerina/http`, the largest overview measured, shows 10 of 10 clients,
 7 service types, 10 of 83 classes and 7 functions.
 
 A package with exactly one client is most often used through it, so the overview opens it in place: under its row
@@ -739,7 +741,7 @@ documentation-only matches if it has any.
 
 ### Order
 
-Every listing is alphabetical: containers in a roster, service types under their listener (and the listeners
+Every listing is alphabetical (an overview's rows go by readme usage, above): containers in a roster, service types under their listener (and the listeners
 themselves), methods, resource paths and `type` declarations within their kind. The exception is a level of path
 groups, which goes by the number of resource methods under each, largest first (alphabetical among equals), because it is
 read to choose where to go next.
