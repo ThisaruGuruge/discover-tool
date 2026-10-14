@@ -568,6 +568,27 @@ public final class Cli {
         return settled.library() == loaded.library() ? plain : answerFrom(settled, call);
     }
 
+    /**
+     * What {@code argv} — a noun, its names and its flags, no package — answers of {@code loaded}, parsed and
+     * dispatched as {@link #run} does it, without fetching anything. Lets a test ask a view the way a caller does.
+     *
+     * @throws IllegalArgumentException when {@code argv} does not parse to a noun
+     */
+    public static Result<DiscoverResult> answerOf(LoadedPackage loaded, List<String> argv) {
+        Commands.Grammar grammar = Commands.Grammar.create();
+        CommandLine.ParseResult parsed;
+        try {
+            parsed = grammar.line().parseArgs(argv.toArray(new String[0]));
+        } catch (CommandLine.ParameterException cause) {
+            throw new IllegalArgumentException(cause.getMessage(), cause);
+        }
+        if (!parsed.hasSubcommand()) {
+            throw new IllegalArgumentException("No noun in " + argv);
+        }
+        String noun = parsed.subcommand().commandSpec().name();
+        return answerFrom(loaded, Invocation.of(grammar.root(), noun, grammar.nouns().get(noun)));
+    }
+
     private static Result<DiscoverResult> answerFrom(LoadedPackage loaded, Invocation call) {
         String name = call.names().isEmpty() ? null : call.names().get(0);
         String filter = call.filter();

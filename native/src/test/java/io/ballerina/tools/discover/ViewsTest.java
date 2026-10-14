@@ -297,7 +297,7 @@ public class ViewsTest {
                     answers.add(render(loaded, scope.commandNoun(), container.name(), "--filter", "zzznosuchmember"));
                     // A one-letter keyword is the widest search a caller can make short of none at all.
                     answers.add(render(loaded, scope.commandNoun(), container.name(), "--filter", "e"));
-                    String flag = "--" + scope.commandNoun();
+                    String flag = scope.commandFlag();
                     if (!container.standalone().isEmpty()) {
                         answers.add(render(loaded, "method", flag, container.name()));
                     }

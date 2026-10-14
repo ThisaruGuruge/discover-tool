@@ -119,7 +119,7 @@ public class ViewsAgreeTest {
             for (Surface.Container container : Surface.of(context.library(), scope)) {
                 List<String> owner = container.isModule()
                         ? List.of()
-                        : List.of("--" + scope.commandNoun(), container.name());
+                        : List.of(scope.commandFlag(), container.name());
                 String noun = container.isModule() ? scope.commandNoun() : "method";
                 List<List<String>> selectors = new ArrayList<>();
                 container.memberNames().forEach(name -> selectors.add(with(List.of(noun, name), owner)));
