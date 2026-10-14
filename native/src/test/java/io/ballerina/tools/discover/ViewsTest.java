@@ -142,10 +142,10 @@ public class ViewsTest {
         StringBuilder text = new StringBuilder();
         StringBuilder json = new StringBuilder();
         for (Surface.Scope scope : Surface.Scope.values()) {
-            DiscoverResult listing = render(loaded, scope.verb());
+            DiscoverResult listing = render(loaded, scope.commandNoun());
             TextRenderer.Context where = new TextRenderer.Context(
-                    loaded.qualified().qualified(), null, List.of(scope.verb()), null, null, null);
-            text.append("== ").append(scope.verb()).append(" ==\n").append(TextRenderer.render(listing, where))
+                    loaded.qualified().qualified(), null, List.of(scope.commandNoun()), null, null, null);
+            text.append("== ").append(scope.commandNoun()).append(" ==\n").append(TextRenderer.render(listing, where))
                     .append("\n");
             json.append(JsonRenderer.render(listing)).append("\n");
         }
@@ -170,13 +170,14 @@ public class ViewsTest {
                 + overview.submodules().size();
         int inlined = overview.members() == null ? 0 : Overview.shownBy(overview.members());
         int others = overview.sections().stream().filter(section -> overview.members() == null
-                        || !section.bucket().equals(Surface.Scope.CLIENT.verb()))
+                        || !section.bucket().equals(Surface.Scope.CLIENT.commandNoun()))
                 .mapToInt(section -> section.rows().size()).sum();
         Assert.assertTrue(inlined <= Containers.MAX_ENTRIES, slug + ": " + inlined + " inlined");
         Assert.assertTrue(rows + inlined <= Containers.MAX_ENTRIES || others == 0,
                 slug + ": " + rows + " rows beside " + inlined + " inlined");
         for (Surface.Scope scope : Surface.Scope.values()) {
-            boolean listed = overview.sections().stream().anyMatch(section -> section.bucket().equals(scope.verb()));
+            boolean listed = overview.sections().stream()
+                    .anyMatch(section -> section.bucket().equals(scope.commandNoun()));
             Assert.assertEquals(listed, !Surface.of(loaded.library(), scope).isEmpty(), slug + " " + scope);
         }
     }
@@ -289,14 +290,14 @@ public class ViewsTest {
         LoadedPackage loaded = FixtureCorpus.loadedFixture(slug);
         int checked = 0;
         for (Surface.Scope scope : Surface.Scope.values()) {
-            List<DiscoverResult> answers = new java.util.ArrayList<>(List.of(render(loaded, scope.verb())));
+            List<DiscoverResult> answers = new java.util.ArrayList<>(List.of(render(loaded, scope.commandNoun())));
             for (Surface.Container container : Surface.of(loaded.library(), scope)) {
                 if (!container.isModule()) {
-                    answers.add(render(loaded, scope.verb(), container.name()));
-                    answers.add(render(loaded, scope.verb(), container.name(), "--filter", "zzznosuchmember"));
+                    answers.add(render(loaded, scope.commandNoun(), container.name()));
+                    answers.add(render(loaded, scope.commandNoun(), container.name(), "--filter", "zzznosuchmember"));
                     // A one-letter keyword is the widest search a caller can make short of none at all.
-                    answers.add(render(loaded, scope.verb(), container.name(), "--filter", "e"));
-                    String flag = "--" + scope.verb();
+                    answers.add(render(loaded, scope.commandNoun(), container.name(), "--filter", "e"));
+                    String flag = "--" + scope.commandNoun();
                     if (!container.standalone().isEmpty()) {
                         answers.add(render(loaded, "method", flag, container.name()));
                     }
@@ -306,7 +307,7 @@ public class ViewsTest {
                 }
             }
             for (DiscoverResult answer : answers) {
-                checked += assertInsideTheCeiling(slug + " " + scope.verb(), answer);
+                checked += assertInsideTheCeiling(slug + " " + scope.commandNoun(), answer);
             }
         }
         Assert.assertTrue(checked > 0, slug + ": no listing was checked");
@@ -1227,11 +1228,8 @@ public class ViewsTest {
     }
 
     @Test
-    public void typeTakesOneNameAndNoFilterBesideIt() {
+    public void typeTakesNoFilterBesideAName() {
         LoadedPackage http = FixtureCorpus.loadedFixture("ballerina__http");
-        Result<DiscoverResult> two = Types.render(http, new Types.Options(List.of("Error", "Response"), null, 1));
-        Assert.assertFalse(two.isOk());
-        Assert.assertTrue(two.failure() instanceof Failure.Validation, two.failure().describe());
         Result<DiscoverResult> named = Types.render(http, new Types.Options(List.of("Error"), "x", 1));
         Assert.assertFalse(named.isOk());
         Assert.assertTrue(named.failure() instanceof Failure.Validation, named.failure().describe());

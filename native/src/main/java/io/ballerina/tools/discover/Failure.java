@@ -84,10 +84,10 @@ public sealed interface Failure {
      *     fix; the suggestion quotes it
      * @param candidates the submodules the package does publish, when a {@code --module} was not found
      */
-    record PackageNotFound(String qualified, String version, String module, String suggestion, String command,
+    record PackageNotFound(String qualified, String version, String module, String suggestion, Command command,
             List<String> candidates) implements Failure {
 
-        public PackageNotFound(String qualified, String version, String module, String suggestion, String command) {
+        public PackageNotFound(String qualified, String version, String module, String suggestion, Command command) {
             this(qualified, version, module, suggestion, command, List.of());
         }
 
@@ -309,7 +309,7 @@ public sealed interface Failure {
             case PackageNotFound f -> {
                 coordinates(json, f.qualified(), f.version(), f.module());
                 json.addProperty("suggestion", f.suggestion());
-                command(json, f.command());
+                command(json, f.command() == null ? null : f.command().text());
                 if (!f.candidates().isEmpty()) {
                     json.add("candidates", strings(f.candidates()));
                 }
@@ -377,19 +377,17 @@ public sealed interface Failure {
     }
 
     /**
-     * This failure with its {@code command}, and the suggestion's quote of it, rewritten by {@code rewrite}: a layer
-     * below the CLI knows only the package a corrected command reaches, not the rest of the caller's command.
+     * This failure with its {@code command}, and the suggestion's quote of it, asked of the same package by
+     * {@code rewrite}: a layer below the CLI knows only the package a corrected command reaches, not the rest of
+     * the caller's command.
      */
-    default Failure retargeted(UnaryOperator<String> rewrite) {
-        return switch (this) {
-            case Validation f when f.command() != null -> new Validation(f.message(),
-                    rewritten(f.suggestion(), f.command(), rewrite.apply(f.command())), rewrite.apply(f.command()),
-                    f.qualified(), f.version());
-            case PackageNotFound f when f.command() != null -> new PackageNotFound(f.qualified(),
-                    f.version(), f.module(), rewritten(f.suggestion(), f.command(), rewrite.apply(f.command())),
-                    rewrite.apply(f.command()), f.candidates());
-            default -> this;
-        };
+    default Failure retargeted(UnaryOperator<Command> rewrite) {
+        if (this instanceof PackageNotFound f && f.command() != null) {
+            Command fixed = rewrite.apply(f.command());
+            return new PackageNotFound(f.qualified(), f.version(), f.module(),
+                    rewritten(f.suggestion(), f.command().text(), fixed.text()), fixed, f.candidates());
+        }
+        return this;
     }
 
     private static String rewritten(String suggestion, String command, String replacement) {

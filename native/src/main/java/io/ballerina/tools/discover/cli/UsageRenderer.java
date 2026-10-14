@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * The synopsis and the flag list, rendered from {@link Commands}' picocli model rather than hand-written.
@@ -45,7 +46,8 @@ final class UsageRenderer {
     private static final String USAGE = "Usage: " + Command.PREFIX;
 
     /** Flags rendered first, in this order: the package, then the container. */
-    private static final List<String> LEADING = List.of(Command.PACKAGE_FLAG, "--client", "--class", "--service");
+    private static final List<String> LEADING =
+            Stream.concat(Stream.of(Command.PACKAGE_FLAG), Command.OWNER_FLAGS.stream()).toList();
 
     private UsageRenderer() {
     }

@@ -1723,8 +1723,9 @@ public class CliTest {
         Capture filtered = new Capture();
         Assert.assertEquals(Cli.run(List.of("type", "Error", "-p", "ballerina/io", "--filter", "x"),
                 filtered.streams(), never()), 2);
-        Assert.assertEquals(filtered.field("suggestion"), "Drop --filter, or drop the name: "
-                + "`bal discover type -p ballerina/io --filter x`.");
+        Assert.assertEquals(filtered.field("suggestion"), "Drop --filter: `bal discover type Error -p ballerina/io`; "
+                + "or drop the name: `bal discover type -p ballerina/io --filter x`.");
+        Assert.assertEquals(filtered.field("command"), "bal discover type Error -p ballerina/io");
     }
 
     @Test

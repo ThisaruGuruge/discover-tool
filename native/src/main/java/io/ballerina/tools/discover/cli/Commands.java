@@ -51,6 +51,9 @@ final class Commands {
 
     static final String HELP_FLAG = "--help";
     static final String HELP_SHORT = "-h";
+    static final String OUTPUT_FLAG = "--output";
+    static final String REFRESH_FLAG = "--refresh";
+    static final String MODULE_SHORT = "-m";
 
     static final String JSON_OUTPUT = "json";
     static final String TEXT_OUTPUT = "text";
@@ -92,7 +95,7 @@ final class Commands {
         @CommandLine.Option(names = {HELP_SHORT, HELP_FLAG}, usageHelp = true, description = "This text.")
         boolean help;
 
-        @CommandLine.Option(names = "--output", paramLabel = JSON_OUTPUT + "|" + TEXT_OUTPUT,
+        @CommandLine.Option(names = OUTPUT_FLAG, paramLabel = JSON_OUTPUT + "|" + TEXT_OUTPUT,
                 description = "Override the TTY-detected default: human text at an interactive terminal, JSON "
                         + "otherwise.")
         String output;
@@ -109,7 +112,7 @@ final class Commands {
                         + "error.")
         int page;
 
-        @CommandLine.Option(names = {Command.MODULE_FLAG, "-m"}, paramLabel = "<module>",
+        @CommandLine.Option(names = {Command.MODULE_FLAG, MODULE_SHORT}, paramLabel = "<module>",
                 description = "Target this submodule instead of the package's default module, the same "
                         + "everywhere including readme. The submodule's name only (for example httpscerr), not "
                         + "<org>/<name>.<submodule>.")
@@ -119,7 +122,7 @@ final class Commands {
         @CommandLine.Option(names = VERSION_FLAG, hidden = true, arity = "0..1", paramLabel = "<version>")
         String version;
 
-        @CommandLine.Option(names = "--refresh",
+        @CommandLine.Option(names = REFRESH_FLAG,
                 description = "Ignore any cached copy and rewrite it. Worth passing only when a name should "
                         + "exist and does not.")
         boolean refresh;
@@ -128,7 +131,7 @@ final class Commands {
     /** The package a noun is asked of. */
     static final class Package {
 
-        @CommandLine.Option(names = {Command.PACKAGE_FLAG, "--package"}, paramLabel = PACKAGE_LABEL,
+        @CommandLine.Option(names = {Command.PACKAGE_FLAG, Command.PACKAGE_LONG_FLAG}, paramLabel = PACKAGE_LABEL,
                 description = "The package to read, as bal pull names it. With no version, the one your project's "
                         + "Dependencies.toml locks, else Central's latest.")
         String pkg;
@@ -137,14 +140,15 @@ final class Commands {
     /** The container a method or resource is declared by. */
     static final class Owners {
 
-        @CommandLine.Option(names = "--client", paramLabel = "<name>",
+        @CommandLine.Option(names = Command.CLIENT_FLAG, paramLabel = "<name>",
                 description = "The client that declares it. Optional when exactly one container does.")
         String client;
 
-        @CommandLine.Option(names = "--class", paramLabel = "<name>", description = "The class that declares it.")
+        @CommandLine.Option(names = Command.CLASS_FLAG, paramLabel = "<name>",
+                description = "The class that declares it.")
         String classOwner;
 
-        @CommandLine.Option(names = "--service", paramLabel = "<name>",
+        @CommandLine.Option(names = Command.SERVICE_FLAG, paramLabel = "<name>",
                 description = "The service type that declares it.")
         String service;
     }
@@ -197,7 +201,8 @@ final class Commands {
     static final class PackageNoun extends Noun {
 
         // Hidden and never valid: declared only so the CLI can say the package is this noun's name.
-        @CommandLine.Option(names = {Command.PACKAGE_FLAG, "--package"}, hidden = true, paramLabel = PACKAGE_LABEL)
+        @CommandLine.Option(names = {Command.PACKAGE_FLAG, Command.PACKAGE_LONG_FLAG}, hidden = true,
+                paramLabel = PACKAGE_LABEL)
         String pkg;
 
         @Override

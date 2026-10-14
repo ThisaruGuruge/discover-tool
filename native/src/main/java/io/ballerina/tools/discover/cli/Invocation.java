@@ -49,8 +49,6 @@ record Invocation(String noun, List<String> names, List<String> rest, String pkg
         Command.Owner owner, int owners, String output, String filter, int page, String module, String version,
         boolean refresh) {
 
-    private static final int FIRST_PAGE = 1;
-
     static Invocation of(Commands.Root root, String noun, Commands.Noun values) {
         Commands.Flags top = root.flags;
         Commands.Flags own = values == null ? top : values.flags;
@@ -60,12 +58,37 @@ record Invocation(String noun, List<String> names, List<String> rest, String pkg
         return new Invocation(noun, names, root.rest == null ? List.of() : List.copyOf(root.rest), pkg, coordinate,
                 values == null ? null : values.owner(), values == null ? 0 : values.owners(),
                 either(own.output, top.output), either(own.filter, top.filter),
-                own.page != FIRST_PAGE ? own.page : top.page, either(own.module, top.module),
+                own.page != Command.FIRST_PAGE ? own.page : top.page, either(own.module, top.module),
                 either(own.version, top.version), own.refresh || top.refresh);
     }
 
     private static String either(String own, String top) {
         return own != null ? own : top;
+    }
+
+    /** A flag given both before the noun and after it, or {@code null}: neither may silently win. */
+    static String repeatedFlag(Commands.Root root, Commands.Noun values) {
+        if (values == null) {
+            return null;
+        }
+        Commands.Flags top = root.flags;
+        Commands.Flags own = values.flags;
+        if (root.pkg.pkg != null && values.pkg() != null) {
+            return Command.PACKAGE_LONG_FLAG;
+        }
+        if (top.output != null && own.output != null) {
+            return Commands.OUTPUT_FLAG;
+        }
+        if (top.filter != null && own.filter != null) {
+            return Command.FILTER_FLAG;
+        }
+        if (top.page != Command.FIRST_PAGE && own.page != Command.FIRST_PAGE) {
+            return Command.PAGE_FLAG;
+        }
+        if (top.module != null && own.module != null) {
+            return Command.MODULE_FLAG;
+        }
+        return top.refresh && own.refresh ? Commands.REFRESH_FLAG : null;
     }
 
     /** The names as a printed command spells them: a name or path without Ballerina's escapes. */
@@ -112,13 +135,13 @@ record Invocation(String noun, List<String> names, List<String> rest, String pkg
     }
 
     /** A command a lower layer printed for another package or module, made this command asked of that one. */
-    String retargeted(String overview) {
-        return Command.targetOf(overview).map(target -> command(target).text() + pageArgument()).orElse(overview);
+    Command retargeted(Command overview) {
+        return paged(command(overview.target()));
     }
 
-    /** {@code --page} and its value with a leading space, or empty on the first page. */
-    String pageArgument() {
-        return page == FIRST_PAGE ? "" : " " + Command.PAGE_FLAG + " " + page;
+    /** {@code command} on this command's page. */
+    Command paged(Command command) {
+        return command.paged(page);
     }
 
     /** This command with the package written as {@code read}. */
@@ -140,7 +163,7 @@ record Invocation(String noun, List<String> names, List<String> rest, String pkg
 
     /** The scope the container flag names, or {@code null} without one. */
     Surface.Scope ownerScope() {
-        return owner == null ? null : Surface.Scope.ofVerb(owner.kind()).orElse(null);
+        return owner == null ? null : Surface.Scope.ofCommandNoun(owner.kind()).orElse(null);
     }
 
     String ownerName() {

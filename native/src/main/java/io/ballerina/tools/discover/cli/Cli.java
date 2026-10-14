@@ -78,13 +78,9 @@ import java.util.stream.Stream;
  */
 public final class Cli {
 
-    private static final String OUTPUT_FLAG = "--output";
-
     static final int FAILED = 1;
 
     private static final int USAGE_ERROR = 2;
-
-    private static final int FIRST_PAGE = 1;
 
     private static final String PLACEHOLDER_PACKAGE = "<org>/<name>";
 
@@ -213,8 +209,8 @@ public final class Cli {
 
     private static Failure packageMisuse(Invocation call) {
         if (call.pkg() != null && call.names().isEmpty()) {
-            String command = Command.overview(new Command.Target(call.pkg(), call.module())).filtered(call.filter())
-                    .text() + call.pageArgument();
+            String command = call.paged(Command.overview(new Command.Target(call.pkg(), call.module()))
+                    .filtered(call.filter())).text();
             return new Failure.Validation("package takes the package as its name, not after -p.",
                     "Run " + Failure.quoted(command) + ".", command);
         }
@@ -250,8 +246,8 @@ public final class Cli {
             return version;
         }
         String command = CONTAINER_NOUNS.containsKey(call.noun()) && !Command.FUNCTION.equals(call.noun())
-                ? call.retarget(memberOf(call.noun(), call.echoed())).text() + call.pageArgument()
-                : call.withNames(names.subList(0, max)).command().text() + call.pageArgument();
+                ? call.paged(call.retarget(memberOf(call.noun(), call.echoed()))).text()
+                : call.paged(call.withNames(names.subList(0, max)).command()).text();
         String takes = max == 1 ? "one name" : "a path and its accessor";
         return new Failure.Validation(call.noun() + " takes " + takes + "; got " + names.size() + ".",
                 "Run " + Failure.quoted(command) + ".", command);
@@ -288,8 +284,8 @@ public final class Cli {
                 ? words.subList(2, words.size()).stream().map(PathTree::plainSelector).toList()
                 : List.of();
         Command mapped = oldBucket(bucket, selectors);
-        String command = mapped.in(new Command.Target(pkg, call.module())).filtered(call.filter()).text()
-                + call.pageArgument();
+        String command = call.paged(mapped.in(new Command.Target(pkg, call.module())).filtered(call.filter()))
+                .text();
         return new Failure.Validation("The package goes after -p now, and what to read comes first.",
                 "Run " + Failure.quoted(command) + ".", command);
     }
@@ -332,7 +328,7 @@ public final class Cli {
             return fail(found.failure(), streams, json);
         }
         TextRenderer.Context where = new TextRenderer.Context(null, null,
-                List.of(SearchCentral.VERB, String.join(" ", keywords)), null, null, null);
+                List.of(Command.SEARCH, String.join(" ", keywords)), null, null, null);
         streams.out().accept((json ? JsonRenderer.render(found.value())
                 : TextRenderer.render(found.value(), where)) + "\n");
         return 0;
@@ -341,7 +337,7 @@ public final class Cli {
     private static int lookup(Invocation call, Streams streams, HttpOptions http, String projectDir, boolean json,
             UsageErrors usage) {
         Result<Coordinate> coordinate = Coordinate.parse(call.coordinate(),
-                corrected -> call.command(new Command.Target(corrected, call.module())).text() + call.pageArgument());
+                corrected -> call.paged(call.command(new Command.Target(corrected, call.module()))).text());
         if (!coordinate.isOk()) {
             return usage.error(coordinate.failure());
         }
@@ -367,7 +363,7 @@ public final class Cli {
         if (!answer.isOk()) {
             return fail(readAt(answer.failure(), loaded.value()), streams, json);
         }
-        if (call.page() != FIRST_PAGE && answer.value().paging() == null) {
+        if (call.page() != Command.FIRST_PAGE && answer.value().paging() == null) {
             return fail(readAt(notPaged(pinned), loaded.value()), streams, json);
         }
         String read = loaded.value().version().text();
@@ -441,11 +437,11 @@ public final class Cli {
         for (int i = 0; i < argv.size(); i++) {
             String token = argv.get(i);
             String value = null;
-            if (token.startsWith(OUTPUT_FLAG + "=")) {
-                value = token.substring(OUTPUT_FLAG.length() + 1);
+            if (token.startsWith(Commands.OUTPUT_FLAG + "=")) {
+                value = token.substring(Commands.OUTPUT_FLAG.length() + 1);
             } else if (takesValue.contains(token) && i + 1 < argv.size()) {
                 i++;
-                value = token.equals(OUTPUT_FLAG) ? argv.get(i) : null;
+                value = token.equals(Commands.OUTPUT_FLAG) ? argv.get(i) : null;
             }
             if (Commands.JSON_OUTPUT.equals(value) || Commands.TEXT_OUTPUT.equals(value)) {
                 return Commands.JSON_OUTPUT.equals(value);
@@ -468,7 +464,7 @@ public final class Cli {
             return version;
         }
         if (Command.TYPE.equals(call.noun())) {
-            return Types.misuse(call.command(Command.TYPE).text(),
+            return Types.misuse(call.command(Command.TYPE),
                     new Types.Options(call.names(), call.filter(), call.page()));
         }
         if (Command.SEARCH.equals(call.noun())) {
@@ -478,7 +474,7 @@ public final class Cli {
     }
 
     private static Failure pageBeforeFirst(int page, String firstPage) {
-        if (page >= FIRST_PAGE) {
+        if (page >= Command.FIRST_PAGE) {
             return null;
         }
         return new Failure.Validation("Page " + page + " is out of range: pages are numbered from 1.",
@@ -499,8 +495,8 @@ public final class Cli {
         if (!Version.isComplete(version)) {
             return new Failure.Validation(message, WRITE_VERSION + qualified.qualified() + ":" + PLACEHOLDER_VERSION);
         }
-        String command = call.at(new Coordinate(qualified, Version.parse(version).value())).command().text()
-                + call.pageArgument();
+        String command = call.paged(call.at(new Coordinate(qualified, Version.parse(version).value())).command())
+                .text();
         return new Failure.Validation(message, WRITE_VERSION + Failure.quoted(command) + ".", command);
     }
 

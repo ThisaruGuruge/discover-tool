@@ -49,8 +49,6 @@ import java.util.regex.Pattern;
  */
 public final class Readme {
 
-    public static final String BUCKET = "readme";
-
     public static final int WHOLE_LIMIT_BYTES = 10 * 1024;
 
     private static final String INTRODUCTION = "Introduction";
@@ -67,7 +65,7 @@ public final class Readme {
     }
 
     private static Command command(Command.Target target, String... names) {
-        return Command.of(BUCKET, names).in(target);
+        return Command.of(Command.README, names).in(target);
     }
 
     /**
@@ -281,10 +279,11 @@ public final class Readme {
         }
         Section section = found.get(0);
         if (filter != null && !matches(section, filter)) {
+            String unfiltered = command(loaded.target(), requested).text();
             return Result.err(new Failure.Validation(
                     "Section " + requested + " (\"" + section.title() + "\") does not mention \""
                             + filter + "\".",
-                    "Drop --filter to read it anyway: `" + command(loaded.target(), requested) + "`."));
+                    "Drop --filter to read it anyway: " + Failure.quoted(unfiltered) + ".", unfiltered));
         }
         return Result.ok(toResult(section, sections.size(), loaded));
     }
@@ -332,7 +331,7 @@ public final class Readme {
         }
 
         List<DiscoverResult.ReadmeSections.Section> items = rows(loaded, matched);
-        String command = command(loaded.target()).filtered(options.filter()).text();
+        Command command = command(loaded.target()).filtered(options.filter());
         Result<Containers.Page> page = Containers.Page.of(options.page(), items.size(), command);
         if (!page.isOk()) {
             return page.cast();

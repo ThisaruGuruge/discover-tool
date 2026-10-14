@@ -50,7 +50,7 @@ final class Asked {
                 case "--filter" -> filter = words[++i];
                 case "--page" -> page = Integer.parseInt(words[++i]);
                 case "--client", "--class", "--service" -> {
-                    owner = Surface.Scope.ofVerb(word.substring(2)).orElseThrow();
+                    owner = Surface.Scope.ofCommandNoun(word.substring(2)).orElseThrow();
                     ownerName = words[++i];
                 }
                 default -> names.add(word);
@@ -66,7 +66,7 @@ final class Asked {
                     page));
             case "resource" -> Containers.render(loaded, owner, Containers.Options.resource(ownerName, names, filter,
                     page));
-            default -> Containers.render(loaded, Surface.Scope.ofVerb(noun).orElseThrow(),
+            default -> Containers.render(loaded, Surface.Scope.ofCommandNoun(noun).orElseThrow(),
                     Containers.Options.container(name, filter, page));
         };
     }
@@ -80,7 +80,7 @@ final class Asked {
         if (scope == Surface.Scope.MODULE) {
             return of(loaded, "function", container);
         }
-        String flag = "--" + scope.verb();
+        String flag = "--" + scope.commandNoun();
         return member.length == 1
                 ? of(loaded, "method", member[0], flag, container)
                 : of(loaded, "resource", member[0], member[1], flag, container);
