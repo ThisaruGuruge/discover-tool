@@ -134,7 +134,7 @@ public final class Cli {
         } catch (CommandLine.ParameterException cause) {
             // picocli's own error printing is deliberately never used: stderr has to hold exactly one `Failure`
             // object, and picocli would write a usage block beside it.
-            Failure specific = describeParseError(cause, grammar);
+            Failure.Validation specific = describeParseError(cause, grammar);
             return specific == null
                     ? usage.helpError(firstLine(cause.getMessage()))
                     : usage.error(specific);
@@ -162,11 +162,13 @@ public final class Cli {
 
         Result<Coordinate> coordinate = Coordinate.parse(root.pkg, Coordinate.moduleArgument(root.module) + tail(root));
         if (!coordinate.isOk()) {
-            return usage.error(coordinate.failure());
+            return coordinate.failure() instanceof Failure.Validation invalid
+                    ? usage.error(invalid)
+                    : fail(coordinate.failure(), streams, json);
         }
         QualifiedName qualified = coordinate.value().qualified();
 
-        Failure argumentError = validate(root, coordinate.value());
+        Failure.Validation argumentError = validate(root, coordinate.value());
         if (argumentError != null) {
             return usage.error(argumentError);
         }
@@ -181,7 +183,7 @@ public final class Cli {
         }
 
         String filter = root.filter;
-        Failure extra = extraNames(bucket, rest, filter, root, qualified, version);
+        Failure.Validation extra = extraNames(bucket, rest, filter, root, qualified, version);
         if (extra != null) {
             return usage.error(extra);
         }
@@ -215,7 +217,7 @@ public final class Cli {
     private static int searchCentral(Commands.Root root, Streams streams, HttpOptions http, boolean json,
             UsageErrors usage) {
         List<String> keywords = rest(root);
-        Failure invalid = rejectInvalidOutput(root);
+        Failure.Validation invalid = rejectInvalidOutput(root);
         if (invalid == null) {
             invalid = SearchCentral.misuse(keywords, root.module, root.filter);
         }
@@ -269,7 +271,7 @@ public final class Cli {
         return Containers.render(loaded, scope, new Containers.Options(selectors, filter, page));
     }
 
-    private static Failure extraNames(String bucket, List<String> rest, String filter, Commands.Root root,
+    private static Failure.Validation extraNames(String bucket, List<String> rest, String filter, Commands.Root root,
             QualifiedName qualified, Version version) {
         if (bucket == null) {
             return null;
@@ -324,7 +326,7 @@ public final class Cli {
                 : failure;
     }
 
-    private static Failure notPaged(Commands.Root root, Coordinate coordinate, String filter) {
+    private static Failure.Validation notPaged(Commands.Root root, Coordinate coordinate, String filter) {
         String command = coordinate.command(root.module) + tail(rest(root), filter, FIRST_PAGE);
         return new Failure.Validation(
                 "This answer has only one page, so --page does not apply.",
@@ -333,7 +335,7 @@ public final class Cli {
 
     // A name typed where the bucket goes is most often a member's (`go doc` leaves the bucket out too): the search
     // finds whichever container declares it.
-    private static Failure unknownBucket(String token, String pkg) {
+    private static Failure.Validation unknownBucket(String token, String pkg) {
         String search = pkg + " " + Search.BUCKET + " " + Texts.shellWord(token);
         return new Failure.Validation(
                 "'" + token + "' is not a bucket.",
@@ -370,8 +372,8 @@ public final class Cli {
         return !interactive;
     }
 
-    private static Failure validate(Commands.Root root, Coordinate coordinate) {
-        Failure output = rejectInvalidOutput(root);
+    private static Failure.Validation validate(Commands.Root root, Coordinate coordinate) {
+        Failure.Validation output = rejectInvalidOutput(root);
         if (output != null) {
             return output;
         }
@@ -379,12 +381,12 @@ public final class Cli {
             return new Failure.Validation("The --filter option needs a keyword.",
                     "Write --filter <keyword>, or drop it to list everything.");
         }
-        Failure page = pageBeforeFirst(root.page, coordinate.command(root.module) + tail(rest(root), root.filter,
-                FIRST_PAGE));
+        String firstPage = coordinate.command(root.module) + tail(rest(root), root.filter, FIRST_PAGE);
+        Failure.Validation page = pageBeforeFirst(root.page, firstPage);
         return page != null ? page : rejectVersionArguments(root, coordinate.qualified());
     }
 
-    private static Failure pageBeforeFirst(int page, String firstPage) {
+    private static Failure.Validation pageBeforeFirst(int page, String firstPage) {
         if (page >= FIRST_PAGE) {
             return null;
         }
@@ -392,7 +394,7 @@ public final class Cli {
                 "Drop --page for the first page: " + Failure.quoted(firstPage) + ".", firstPage);
     }
 
-    private static Failure versionFlag(Commands.Root root) {
+    private static Failure.Validation versionFlag(Commands.Root root) {
         String message = "Unknown option '" + Commands.VERSION_FLAG + "'.";
         Result<Coordinate> coordinate = root.pkg == null ? null : Coordinate.parse(root.pkg);
         if (coordinate == null || !coordinate.isOk()) {
@@ -402,7 +404,7 @@ public final class Cli {
         return writtenVersion(message, root, coordinate.value().qualified(), root.version, tail(root));
     }
 
-    private static Failure writtenVersion(String message, Commands.Root root, QualifiedName qualified,
+    private static Failure.Validation writtenVersion(String message, Commands.Root root, QualifiedName qualified,
             String version, String tail) {
         if (!Version.isComplete(version)) {
             return new Failure.Validation(message, WRITE_VERSION + qualified.qualified() + ":" + PLACEHOLDER_VERSION);
@@ -411,7 +413,7 @@ public final class Cli {
         return new Failure.Validation(message, WRITE_VERSION + Failure.quoted(command) + ".", command);
     }
 
-    private static Failure rejectInvalidOutput(Commands.Root root) {
+    private static Failure.Validation rejectInvalidOutput(Commands.Root root) {
         if (root.output == null || Commands.JSON_OUTPUT.equals(root.output)
                 || Commands.TEXT_OUTPUT.equals(root.output)) {
             return null;
@@ -421,7 +423,7 @@ public final class Cli {
                 "Pass --output " + Commands.JSON_OUTPUT + " or --output " + Commands.TEXT_OUTPUT + ".");
     }
 
-    private static Failure rejectVersionArguments(Commands.Root root, QualifiedName qualified) {
+    private static Failure.Validation rejectVersionArguments(Commands.Root root, QualifiedName qualified) {
         List<String> tokens = root.rest;
         if (tokens == null) {
             return null;
@@ -440,7 +442,8 @@ public final class Cli {
     }
 
     // The failure a parse error is, or null when picocli's own first line says it best.
-    private static Failure describeParseError(CommandLine.ParameterException cause, Commands.Grammar grammar) {
+    private static Failure.Validation describeParseError(CommandLine.ParameterException cause,
+            Commands.Grammar grammar) {
         if (cause instanceof CommandLine.UnmatchedArgumentException unmatched) {
             List<String> tokens = unmatched.getUnmatched();
             // Every positional fits `[bucket] [name ...]`, so only an option is ever left unmatched.
@@ -474,7 +477,7 @@ public final class Cli {
         return null;
     }
 
-    private static Failure missingValue(CommandLine.Model.OptionSpec option) {
+    private static Failure.Validation missingValue(CommandLine.Model.OptionSpec option) {
         String name = option.longestName();
         String label = option.paramLabel();
         return new Failure.Validation(
@@ -494,7 +497,7 @@ public final class Cli {
 
     private record UsageErrors(Commands.Grammar grammar, Streams streams, boolean json) {
 
-        int error(Failure failure) {
+        int error(Failure.Validation failure) {
             return write(failure, true);
         }
 
@@ -502,7 +505,7 @@ public final class Cli {
             return write(new Failure.Validation(message, RUN_HELP), false);
         }
 
-        private int write(Failure failure, boolean pointToHelp) {
+        private int write(Failure.Validation failure, boolean pointToHelp) {
             String usage = json ? "" : "\n" + UsageRenderer.usageLine(grammar)
                     + (pointToHelp ? "\nRun `" + HELP + "` for details." : "");
             streams.errorOut().accept(failure.describe(json) + usage + "\n");

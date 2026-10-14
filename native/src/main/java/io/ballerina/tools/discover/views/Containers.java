@@ -629,7 +629,7 @@ public final class Containers {
         return select(container, List.of(token)).stream().anyMatch(entry -> !(entry.fn() instanceof Fn.Resource));
     }
 
-    private static Failure unread(
+    private static Failure.Validation unread(
             LoadedPackage loaded, Surface.Scope scope, Surface.Container container, List<String> selectors,
             int consumed, Options options) {
         String takes = container.hasPaths()
@@ -646,7 +646,7 @@ public final class Containers {
      *
      * @param command the command the bucket is listed with, e.g. {@code bal discover ballerina/io funcs}
      */
-    public static Failure extraFunctionNames(String command, Options options) {
+    public static Failure.Validation extraFunctionNames(String command, Options options) {
         List<String> selectors = options.selectors();
         if (selectors.size() < 2) {
             return null;
@@ -657,7 +657,7 @@ public final class Containers {
 
     private record Fix(String change, String command) { }
 
-    private static Failure unread(List<String> selectors, int consumed, String reason, Fix fix) {
+    private static Failure.Validation unread(List<String> selectors, int consumed, String reason, Fix fix) {
         List<String> unread = selectors.subList(consumed, selectors.size());
         return new Failure.Validation(
                 "Unexpected " + (unread.size() == 1 ? "argument " : "arguments ")

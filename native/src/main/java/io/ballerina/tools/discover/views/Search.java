@@ -81,7 +81,7 @@ public final class Search {
      *
      * @param search the command that searches, without keywords: {@code bal discover ballerinax/kafka search}
      */
-    public static Failure misuse(String search, List<String> keywords, String filter) {
+    public static Failure.Validation misuse(String search, List<String> keywords, String filter) {
         if (keywords.isEmpty()) {
             return new Failure.Validation("The search needs at least one keyword.",
                     "Write " + Failure.quoted(search + " <keyword>") + ".");

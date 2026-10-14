@@ -148,7 +148,7 @@ public final class Types {
      *
      * @param command the command the bucket is listed with, e.g. {@code bal discover ballerina/io type}
      */
-    public static Failure misuse(String command, Options options) {
+    public static Failure.Validation misuse(String command, Options options) {
         if (options.selectors().size() > 1) {
             return new Failure.Validation(
                     "The type bucket takes one declaration name; got " + options.selectors().size() + ".",
