@@ -56,20 +56,32 @@ public sealed interface Failure {
      *     fix; the suggestion quotes it
      * @param qualified the {@code org/name} the arguments were for, or {@code null} when no package was reached
      * @param version the version that was read, or {@code null} when none was reached
+     * @param owners when the command must name one of several containers, each of them with the command that names
+     *     it — there is then no single command to run, so {@code command} is {@code null}
      */
-    record Validation(String message, String suggestion, String command, String qualified, String version)
-            implements Failure {
+    record Validation(String message, String suggestion, String command, String qualified, String version,
+            List<Owner> owners) implements Failure {
 
         public Validation(String message, String suggestion, String command) {
-            this(message, suggestion, command, null, null);
+            this(message, suggestion, command, null, null, List.of());
+        }
+
+        /** Several commands, one per container, and the caller must pick one. */
+        public Validation(String message, String suggestion, List<Owner> owners) {
+            this(message, suggestion, null, null, null, owners);
         }
 
         public Validation(String message, String suggestion) {
-            this(message, suggestion, null);
+            this(message, suggestion, (String) null);
+        }
+
+        /** Whether the command must name one of {@link #owners()} — a usage error however the package reads. */
+        public boolean asksToChoose() {
+            return !owners.isEmpty();
         }
 
         public Validation about(String forPackage, String atVersion) {
-            return new Validation(message, suggestion, command, forPackage, atVersion);
+            return new Validation(message, suggestion, command, forPackage, atVersion, owners);
         }
     }
 
@@ -272,11 +284,14 @@ public sealed interface Failure {
             lines.add("  candidates:");
             f.candidates().forEach(candidate -> lines.add(DETAIL_INDENT + candidate));
         }
-        if (this instanceof SymbolNotFound f) {
-            int width = f.owners().stream().mapToInt(owner -> owner.name().length()).max().orElse(0);
-            f.owners().forEach(owner -> lines.add(DETAIL_INDENT + owner.name()
-                    + " ".repeat(width - owner.name().length() + COLUMN_GAP) + owner.command()));
-        }
+        List<Owner> owners = switch (this) {
+            case SymbolNotFound f -> f.owners();
+            case Validation f -> f.owners();
+            default -> List.of();
+        };
+        int width = owners.stream().mapToInt(owner -> owner.name().length()).max().orElse(0);
+        owners.forEach(owner -> lines.add(DETAIL_INDENT + owner.name()
+                + " ".repeat(width - owner.name().length() + COLUMN_GAP) + owner.command()));
         return String.join("\n", lines);
     }
 
@@ -305,6 +320,7 @@ public sealed interface Failure {
                 }
                 json.addProperty("suggestion", f.suggestion());
                 command(json, f.command());
+                owners(json, f.owners());
             }
             case PackageNotFound f -> {
                 coordinates(json, f.qualified(), f.version(), f.module());
@@ -354,20 +370,25 @@ public sealed interface Failure {
                 if (!f.candidates().isEmpty()) {
                     json.add("candidates", strings(f.candidates()));
                 }
-                if (!f.owners().isEmpty()) {
-                    JsonArray owners = new JsonArray();
-                    f.owners().forEach(owner -> {
-                        JsonObject row = new JsonObject();
-                        row.addProperty("name", owner.name());
-                        row.addProperty("command", owner.command());
-                        owners.add(row);
-                    });
-                    json.add("owners", owners);
-                }
+                owners(json, f.owners());
             }
             case Internal f -> json.addProperty("suggestion", f.suggestion());
         }
         return json.toString();
+    }
+
+    private static void owners(JsonObject json, List<Owner> owners) {
+        if (owners.isEmpty()) {
+            return;
+        }
+        JsonArray rows = new JsonArray();
+        owners.forEach(owner -> {
+            JsonObject row = new JsonObject();
+            row.addProperty("name", owner.name());
+            row.addProperty("command", owner.command());
+            rows.add(row);
+        });
+        json.add("owners", rows);
     }
 
     private static void command(JsonObject json, String command) {

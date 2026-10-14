@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * {@code client} / {@code service} / {@code class} / {@code function}, and the {@code method} and {@code resource}
@@ -277,7 +278,45 @@ public final class Containers {
         if (pathOwners.size() == 1) {
             return answer(loaded, pathOwners.get(0).scope(), pathOwners.get(0), options.selectors(), options);
         }
-        return Result.err(noOwner(loaded, scope, options));
+        List<Surface.Container> withPaths = options.ask() == Ask.RESOURCE
+                ? candidates.stream().filter(Surface.Container::hasPaths).toList()
+                : List.of();
+        if (withPaths.size() == 1) {
+            return answer(loaded, withPaths.get(0).scope(), withPaths.get(0), options.selectors(), options);
+        }
+        return Result.err(noOwner(loaded, options));
+    }
+
+    /**
+     * The member command {@code names} meant, when there are more of them than a method or a resource takes: the
+     * container they start with as its flag; else for a resource, its first path and accessor, or the names before
+     * the accessor as one path, or else the listing; else for a method, its first name.
+     */
+    public static Command memberMeant(LoadedPackage loaded, Ask ask, Command.Owner owner, List<String> names) {
+        String noun = ask == Ask.RESOURCE ? Command.RESOURCE : Command.METHOD;
+        int takes = ask == Ask.RESOURCE ? 2 : 1;
+        Optional<Surface.Container> first = Surface.byName(containersOf(loaded), names.get(0));
+        if (first.isPresent()) {
+            List<String> rest = names.subList(1, Math.min(names.size(), takes + 1));
+            return owned(loaded.command(noun).with(plainWords(rest)), first.get());
+        }
+        Command meant = ask == Ask.METHOD
+                ? loaded.command(noun, PathTree.plainSelector(names.get(0)))
+                : declaredPath(loaded, owner, names);
+        return owner == null ? meant : meant.ownedBy(owner);
+    }
+
+    private static Command declaredPath(LoadedPackage loaded, Command.Owner owner, List<String> names) {
+        List<String> words = plainWords(names);
+        List<String> joined = List.of(String.join(PathTree.SEPARATOR, words.subList(0, words.size() - 1)),
+                words.get(words.size() - 1));
+        return Stream.of(words.subList(0, 2), joined)
+                .filter(asked -> containersOf(loaded).stream()
+                        .filter(container -> owner == null || Identifiers.plain(container.name()).equals(owner.name()))
+                        .anyMatch(container -> !select(container, Ask.RESOURCE, asked).isEmpty()))
+                .findFirst()
+                .map(asked -> loaded.command(Command.RESOURCE).with(asked))
+                .orElse(loaded.command(Command.RESOURCE));
     }
 
     private static List<Surface.Container> containersOf(LoadedPackage loaded) {
@@ -328,20 +367,31 @@ public final class Containers {
         String what = selectors.isEmpty()
                 ? (options.ask() == Ask.RESOURCE ? "Resource methods are" : "Methods are")
                 : named(String.join(" ", plainWords(selectors))) + " is";
-        return declaredBySeveral(loaded, selectors.isEmpty() ? List.of() : selectors,
-                what + " declared by " + Texts.and(names) + " in " + loaded.place() + ".",
-                owners.stream().map(owner -> new Failure.Owner(owner.plainName(),
+        List<Failure.Owner> rows = owners.stream().map(owner -> new Failure.Owner(owner.plainName(),
                         askCommand(loaded, owner, options.ask(), selectors).filtered(filterOf(options)).text()))
-                        .toList());
+                .toList();
+        String message = what + " declared by " + Texts.and(names) + " in " + loaded.place() + ".";
+        String search = searchFor(loaded, selectors);
+        String suggestion = rows.size() > MAX_ENTRIES
+                ? "Name the one you mean with " + String.join(", ", Command.OWNER_FLAGS) + "; the first "
+                        + MAX_ENTRIES + " of " + rows.size() + " are below, and " + Failure.quoted(search)
+                        + " lists them all:"
+                : "Name the one you mean with " + String.join(", ", Command.OWNER_FLAGS) + ":";
+        return new Failure.Validation(message, suggestion, rows.subList(0, Math.min(rows.size(), MAX_ENTRIES)))
+                .about(loaded.qualified().qualified(), loaded.version().text());
+    }
+
+    private static String searchFor(LoadedPackage loaded, List<String> requested) {
+        return requested.isEmpty()
+                ? loaded.overview().text()
+                : loaded.command(Command.SEARCH, PathTree.plainSelector(requested.get(0))).text();
     }
 
     // Each owner's command is the answer, so the failure lists them and quotes none; past the entry ceiling, the
     // package's search for the name lists the rest.
     private static Failure declaredBySeveral(LoadedPackage loaded, List<String> requested, String message,
             List<Failure.Owner> owners) {
-        String search = requested.isEmpty()
-                ? loaded.overview().text()
-                : loaded.command(Command.SEARCH, PathTree.plainSelector(requested.get(0))).text();
+        String search = searchFor(loaded, requested);
         String suggestion = owners.size() > MAX_ENTRIES
                 ? "Name the one you mean; the first " + MAX_ENTRIES + " of " + owners.size() + " are below, and "
                         + Failure.quoted(search) + " lists them all:"
@@ -368,21 +418,28 @@ public final class Containers {
                 "List the " + scope.plural() + ": " + Failure.quoted(listing) + ".", listing);
     }
 
-    // A member no container declares: where the name is held instead, else the package's search for it.
-    private static Failure noOwner(LoadedPackage loaded, Surface.Scope scope, Options options) {
-        String what = options.ask() == Ask.RESOURCE ? "resource method" : "method";
-        String where = scope == null ? "" : " of any " + scope.noun();
+    // A member no container declares, asked without a container flag: where the name is held instead, else the
+    // package's search for it.
+    private static Failure noOwner(LoadedPackage loaded, Options options) {
+        boolean resource = options.ask() == Ask.RESOURCE;
+        String what = resource ? "resource method" : "method";
         if (options.selectors().isEmpty()) {
-            String overview = loaded.overview().text();
-            return loaded.symbolNotFound(List.of(), "No " + (scope == null ? "container" : scope.noun()) + " in "
-                    + loaded.place() + " declares a " + what + ".",
-                    "See what it declares: " + Failure.quoted(overview) + ".", overview);
+            Ask other = resource ? Ask.METHOD : Ask.RESOURCE;
+            boolean declared = containersOf(loaded).stream().anyMatch(container -> !members(container, other)
+                    .isEmpty());
+            String next = declared
+                    ? loaded.command(resource ? Command.METHOD : Command.RESOURCE).text()
+                    : loaded.overview().text();
+            return loaded.symbolNotFound(List.of(), "No container in " + loaded.place() + " declares a " + what
+                    + ".", (declared ? "List the " + (resource ? "methods" : "resource methods") + " instead: "
+                    : "See what it declares: ") + Failure.quoted(next) + ".", next);
         }
         String token = options.selectors().get(0);
         String typed = String.join(" ", plainWords(options.selectors()));
-        String message = named(typed) + " is not a " + what + where + " in " + loaded.place() + ".";
+        String message = named(typed) + " is not a " + what + " in " + loaded.place() + ".";
         if (options.ask() == Ask.METHOD) {
-            Optional<Failure> misplaced = heldElsewhere(loaded, null, message, token, options);
+            Optional<Failure> misplaced = heldElsewhere(loaded, null, message, token, options)
+                    .or(() -> dotted(loaded, message, token, options));
             if (misplaced.isPresent()) {
                 return misplaced.get();
             }
@@ -390,6 +447,20 @@ public final class Containers {
         String search = loaded.command(Command.SEARCH, PathTree.plainSelector(token)).text();
         return loaded.symbolNotFound(options.selectors(), message,
                 "Search the package for it: " + Failure.quoted(search) + ".", search);
+    }
+
+    // `Producer.send`, the way code calls it: the method on the container its flag names.
+    private static Optional<Failure> dotted(LoadedPackage loaded, String message, String token, Options options) {
+        int dot = token.indexOf('.');
+        if (dot <= 0) {
+            return Optional.empty();
+        }
+        String method = token.substring(dot + 1);
+        return Surface.byName(containersOf(loaded), token.substring(0, dot))
+                .filter(container -> !select(container, Ask.METHOD, List.of(method)).isEmpty())
+                .map(container -> misplaced(loaded, token, message, "Name its container with "
+                        + container.scope().commandFlag(), askCommand(loaded, container, Ask.METHOD,
+                        List.of(method)).filtered(filterOf(options)).text()));
     }
 
     private static Failure notInBucket(LoadedPackage loaded, Surface.Scope scope, String token, Options options) {
@@ -635,21 +706,18 @@ public final class Containers {
                 .filtered(namedByFilter(container, options) ? null : filterOf(options)).text();
     }
 
-    // `client <Name>`, or `function` for the module's functions.
     private static Command containerCommand(LoadedPackage loaded, Surface.Container container) {
         return container.isModule()
                 ? loaded.command(Surface.Scope.MODULE.commandNoun())
                 : loaded.command(container.scope().commandNoun(), container.plainName());
     }
 
-    // `function <name>`, or `method <name> --client <C>`.
     private static Command nameCommand(LoadedPackage loaded, Surface.Container container, String name) {
         return container.isModule()
                 ? loaded.command(Surface.Scope.MODULE.commandNoun(), name)
                 : owned(loaded.command(Command.METHOD, name), container);
     }
 
-    // `resource [path [accessor]] --client <C>`.
     private static Command resourceCommand(LoadedPackage loaded, Surface.Container container, List<String> words) {
         return owned(loaded.command(Command.RESOURCE).with(words), container);
     }

@@ -22,6 +22,7 @@ import io.ballerina.tools.discover.Command;
 import io.ballerina.tools.discover.views.Containers;
 import picocli.CommandLine;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -186,14 +187,9 @@ final class Commands {
         /** The {@code -p} value, or {@code null} for a noun that takes none. */
         abstract String pkg();
 
-        /** The container flag given, or {@code null}. */
-        Command.Owner owner() {
-            return null;
-        }
-
-        /** How many container flags were given. */
-        int owners() {
-            return 0;
+        /** The container flags given. */
+        List<Command.Owner> owners() {
+            return List.of();
         }
     }
 
@@ -230,20 +226,18 @@ final class Commands {
         Owners owners = new Owners();
 
         @Override
-        Command.Owner owner() {
+        List<Command.Owner> owners() {
+            List<Command.Owner> given = new ArrayList<>();
             if (owners.client != null) {
-                return new Command.Owner(Command.CLIENT, owners.client);
+                given.add(new Command.Owner(Command.CLIENT, owners.client));
             }
             if (owners.classOwner != null) {
-                return new Command.Owner(Command.CLASS, owners.classOwner);
+                given.add(new Command.Owner(Command.CLASS, owners.classOwner));
             }
-            return owners.service == null ? null : new Command.Owner(Command.SERVICE, owners.service);
-        }
-
-        @Override
-        int owners() {
-            return (owners.client == null ? 0 : 1) + (owners.classOwner == null ? 0 : 1)
-                    + (owners.service == null ? 0 : 1);
+            if (owners.service != null) {
+                given.add(new Command.Owner(Command.SERVICE, owners.service));
+            }
+            return given;
         }
     }
 }

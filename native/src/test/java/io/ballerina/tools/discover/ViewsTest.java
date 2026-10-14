@@ -417,11 +417,11 @@ public class ViewsTest {
         // `commit` is a keyword, declared `'commit`: listed `commit`, and typed either way.
         for (String typed : List.of("commit", "'commit")) {
             Result<DiscoverResult> answer = Asked.of(kafka, "method", typed);
-            Failure.SymbolNotFound failure = (Failure.SymbolNotFound) answer.failure();
+            Failure.Validation failure = (Failure.Validation) answer.failure();
             Assert.assertEquals(failure.message(), "'commit' is declared by Caller and Consumer in "
                     + kafka.label() + ".");
             Assert.assertNull(failure.command());
-            Assert.assertEquals(failure.candidates(), List.of());
+            Assert.assertTrue(failure.asksToChoose());
             Assert.assertEquals(failure.owners(), List.of(
                     new Failure.Owner("Caller", "bal discover method commit -p ballerinax/kafka --client Caller"),
                     new Failure.Owner("Consumer", "bal discover method commit -p ballerinax/kafka --client Consumer")));
@@ -677,8 +677,7 @@ public class ViewsTest {
     @Test
     public void aPathSeveralContainersHoldNamesEachContainer() {
         LoadedPackage http = FixtureCorpus.loadedFixture("ballerina__http");
-        Failure.SymbolNotFound several = (Failure.SymbolNotFound) Asked.of(http, "resource", ":...path", "get")
-                .failure();
+        Failure.Validation several = (Failure.Validation) Asked.of(http, "resource", ":...path", "get").failure();
         Assert.assertEquals(several.owners().size(), 6, several.owners().toString());
         Assert.assertTrue(ownerCommands(several).contains(
                 "bal discover resource :...path get -p ballerina/http --client Client"));
@@ -1315,7 +1314,7 @@ public class ViewsTest {
                 "bal discover method receive -p test/pkg --client Client",
                 "bal discover method send -p test/pkg --client Client"));
 
-        Failure.SymbolNotFound both = (Failure.SymbolNotFound) Asked.of(loaded, "method", "send").failure();
+        Failure.Validation both = (Failure.Validation) Asked.of(loaded, "method", "send").failure();
         Assert.assertEquals(ownerCommands(both), List.of("bal discover method send -p test/pkg --client Client",
                 "bal discover method send -p test/pkg --client Other"));
         Assert.assertEquals(signature(loaded, "method", "receive").container(), "Client");
@@ -1345,7 +1344,7 @@ public class ViewsTest {
         Assert.assertEquals(signature(loaded, "resource", "foo", "get").container(), "Paths");
     }
 
-    private static List<String> ownerCommands(Failure.SymbolNotFound failure) {
+    private static List<String> ownerCommands(Failure.Validation failure) {
         return failure.owners().stream().map(Failure.Owner::command).toList();
     }
 

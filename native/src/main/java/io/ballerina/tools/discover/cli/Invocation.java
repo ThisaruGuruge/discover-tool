@@ -35,8 +35,7 @@ import java.util.List;
  * @param rest what was typed where the noun goes but is not one: an old package-first command, or a mistyped noun
  * @param pkg the {@code -p} value, or {@code null}
  * @param coordinate the package as it is read: {@code package}'s name, or {@code pkg}
- * @param owner the container flag given, or {@code null}
- * @param owners how many container flags were given
+ * @param owners the container flags given, in the order they are declared
  * @param output the {@code --output} value, or {@code null}
  * @param filter the {@code --filter} value, or {@code null}
  * @param page the {@code --page} value
@@ -46,7 +45,7 @@ import java.util.List;
  * @since 0.1.0
  */
 record Invocation(String noun, List<String> names, List<String> rest, String pkg, String coordinate,
-        Command.Owner owner, int owners, String output, String filter, int page, String module, String version,
+        List<Command.Owner> owners, String output, String filter, int page, String module, String version,
         boolean refresh) {
 
     static Invocation of(Commands.Root root, String noun, Commands.Noun values) {
@@ -56,7 +55,7 @@ record Invocation(String noun, List<String> names, List<String> rest, String pkg
         String pkg = values == null || values.pkg() == null ? root.pkg.pkg : values.pkg();
         String coordinate = Command.PACKAGE.equals(noun) ? (names.isEmpty() ? null : names.get(0)) : pkg;
         return new Invocation(noun, names, root.rest == null ? List.of() : List.copyOf(root.rest), pkg, coordinate,
-                values == null ? null : values.owner(), values == null ? 0 : values.owners(),
+                values == null ? List.of() : values.owners(),
                 either(own.output, top.output), either(own.filter, top.filter),
                 own.page != Command.FIRST_PAGE ? own.page : top.page, either(own.module, top.module),
                 either(own.version, top.version), own.refresh || top.refresh);
@@ -121,7 +120,7 @@ record Invocation(String noun, List<String> names, List<String> rest, String pkg
             return Command.overview(target).filtered(filter);
         }
         Command command = Command.of(noun, echoed()).in(target).filtered(filter);
-        return owner == null ? command : command.ownedBy(owner.kind(), owner.name());
+        return owner() == null ? command : command.ownedBy(owner());
     }
 
     /** The bare {@code noun}, asked of this command's package. */
@@ -152,21 +151,32 @@ record Invocation(String noun, List<String> names, List<String> rest, String pkg
             written = new ArrayList<>(names);
             written.set(0, text);
         }
-        return new Invocation(noun, List.copyOf(written), rest, pkg == null ? null : text, text, owner, owners,
+        return new Invocation(noun, List.copyOf(written), rest, pkg == null ? null : text, text, owners,
                 output, filter, page, module, version, refresh);
     }
 
     Invocation withNames(List<String> others) {
-        return new Invocation(noun, List.copyOf(others), rest, pkg, coordinate, owner, owners, output, filter, page,
+        return new Invocation(noun, List.copyOf(others), rest, pkg, coordinate, owners, output, filter, page,
                 module, version, refresh);
+    }
+
+    /** The container flag given, or {@code null}; {@link Cli} rejects more than one. */
+    Command.Owner owner() {
+        return owners.isEmpty() ? null : owners.get(0);
+    }
+
+    /** This command with only {@code kept} of its container flags. */
+    Invocation ownedBy(Command.Owner kept) {
+        return new Invocation(noun, names, rest, pkg, coordinate, List.of(kept), output, filter, page, module,
+                version, refresh);
     }
 
     /** The scope the container flag names, or {@code null} without one. */
     Surface.Scope ownerScope() {
-        return owner == null ? null : Surface.Scope.ofCommandNoun(owner.kind()).orElse(null);
+        return owner() == null ? null : Surface.Scope.ofCommandNoun(owner().kind()).orElse(null);
     }
 
     String ownerName() {
-        return owner == null ? null : owner.name();
+        return owner() == null ? null : owner().name();
     }
 }

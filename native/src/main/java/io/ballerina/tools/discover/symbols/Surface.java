@@ -111,6 +111,11 @@ public final class Surface {
             return commandNoun;
         }
 
+        /** The flag a member command names a container of this scope with: {@code --client}. */
+        public String commandFlag() {
+            return Command.FLAG_PREFIX + commandNoun;
+        }
+
         /** The scope {@code noun} addresses, if it addresses one. */
         public static Optional<Scope> ofCommandNoun(String noun) {
             return Arrays.stream(values()).filter(scope -> scope.commandNoun.equals(noun)).findFirst();
