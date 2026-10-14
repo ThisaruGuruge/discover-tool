@@ -32,7 +32,8 @@ import java.util.regex.Pattern;
 /**
  * How often a readme uses each name, so an overview section shows the rows a reader meets first.
  *
- * <p>A use is one whole identifier anywhere in the readme, code or prose, compared case-sensitively by its plain
+ * <p>A use is one whole identifier in the readme's code (fenced blocks and inline code spans; prose words never
+ * count, as {@code Status} in "Online Certificate Status Protocol" would), compared case-sensitively by its plain
  * spelling: {@code 'public} and {@code public} are one name, {@code http:Client} uses {@code Client}, and
  * {@code ClientConfiguration} does not.
  *
@@ -47,10 +48,10 @@ final class ReadmeUsage {
     private ReadmeUsage() {
     }
 
-    /** How many times {@code readme} uses each name it uses at all. */
-    static Map<String, Integer> counts(String readme) {
+    /** How many times {@code code} uses each name it uses at all. */
+    static Map<String, Integer> counts(String code) {
         Map<String, Integer> counts = new HashMap<>();
-        Matcher matcher = IDENTIFIER.matcher(readme);
+        Matcher matcher = IDENTIFIER.matcher(code);
         while (matcher.find()) {
             counts.merge(Identifiers.plain(matcher.group()), 1, Integer::sum);
         }
@@ -62,7 +63,7 @@ final class ReadmeUsage {
         if (readme.isEmpty()) {
             return rows;
         }
-        Map<String, Integer> counts = counts(readme.get());
+        Map<String, Integer> counts = counts(Readme.codeOf(readme.get()));
         return rows.stream()
                 .sorted(Comparator.comparingInt(
                         (DiscoverResult.Overview.Row row) -> counts.getOrDefault(Identifiers.plain(row.name()), 0))

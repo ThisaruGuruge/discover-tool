@@ -50,19 +50,19 @@ public class OverviewOrderTest {
 
     @Test
     public void theMostUsedNameComesFirst() {
-        String readme = "Use `Gamma`, then Gamma again, and Delta once.\n```ballerina\nGamma g = new;\n```";
+        String readme = "Use `Gamma`, then `Gamma` again, and `Delta` once.\n```ballerina\nGamma g = new;\n```";
         Assert.assertEquals(classRows(readme), List.of("Gamma", "Delta", "Alpha", "Beta"));
     }
 
     @Test
     public void tiesAndUnusedNamesStayAlphabetical() {
-        Assert.assertEquals(classRows("Delta and Beta, once each."), List.of("Beta", "Delta", "Alpha", "Gamma"));
+        Assert.assertEquals(classRows("`Delta` and `Beta`, once each."), List.of("Beta", "Delta", "Alpha", "Gamma"));
         Assert.assertEquals(classRows("Nothing here names a class."), List.of("Alpha", "Beta", "Delta", "Gamma"));
     }
 
     @Test
     public void onlyAWholeIdentifierIsAUse() {
-        Assert.assertEquals(classRows("AlphaConfig, BetaClient, _Gamma, Gamma2 and alpha. Delta."),
+        Assert.assertEquals(classRows("`AlphaConfig, BetaClient, _Gamma, Gamma2 and alpha. Delta.`"),
                 List.of("Delta", "Alpha", "Beta", "Gamma"));
     }
 
@@ -73,6 +73,25 @@ public class OverviewOrderTest {
     }
 
     @Test
+    public void aProseWordIsNotAUse() {
+        Assert.assertEquals(rows(List.of("Alpha", "Status"),
+                "`Alpha`. Online Certificate Status Protocol checks Status, Status and Status."),
+                List.of("Alpha", "Status"));
+    }
+
+    @Test
+    public void anInlineCodeSpanIsAUse() {
+        Assert.assertEquals(rows(List.of("Alpha", "Beta", "Status"), "`Alpha` and `Alpha`, then `http:Status`."),
+                List.of("Alpha", "Status", "Beta"));
+    }
+
+    @Test
+    public void aTildeFenceIsCode() {
+        Assert.assertEquals(rows(List.of("Alpha", "Beta"), "Prose.\n~~~ballerina\nBeta b = new;\n~~~\nAlpha."),
+                List.of("Beta", "Alpha"));
+    }
+
+    @Test
     public void withoutAReadmeTheOrderIsAlphabetical() {
         Assert.assertEquals(names(Overview.of(withClasses(Optional.empty()))),
                 List.of("Alpha", "Beta", "Delta", "Gamma"));
@@ -80,7 +99,7 @@ public class OverviewOrderTest {
 
     @Test
     public void jsonAndTextShowTheSameOrder() {
-        DiscoverResult.Overview overview = Overview.of(withClasses(Optional.of("Gamma Gamma Beta")));
+        DiscoverResult.Overview overview = Overview.of(withClasses(Optional.of("`Gamma Gamma Beta`")));
         JsonArray entries = JsonParser.parseString(JsonRenderer.render(overview)).getAsJsonObject()
                 .getAsJsonObject("classes").getAsJsonArray("entries");
         Assert.assertEquals(StreamSupport.stream(entries.spliterator(), false)
@@ -101,14 +120,18 @@ public class OverviewOrderTest {
             classes.add(Decl.client("Class" + letter, Decl.method("run")));
         }
         payload.with("classes", classes.toArray(Decl[]::new));
-        List<String> shown = names(Overview.of(loaded(payload, Optional.of("ClassL and ClassK; ClassL."))));
+        List<String> shown = names(Overview.of(loaded(payload, Optional.of("`ClassL` and `ClassK`; `ClassL`."))));
         Assert.assertEquals(shown.size(), 10);
         Assert.assertEquals(shown.subList(0, 3), List.of("ClassL", "ClassK", "ClassA"));
         Assert.assertFalse(shown.contains("ClassI"), shown.toString());
     }
 
     private static List<String> classRows(String readme) {
-        return names(Overview.of(withClasses(Optional.of(readme))));
+        return rows(CLASSES, readme);
+    }
+
+    private static List<String> rows(List<String> classes, String readme) {
+        return names(Overview.of(withClasses(classes, Optional.of(readme))));
     }
 
     private static List<String> names(DiscoverResult.Overview overview) {
@@ -120,8 +143,12 @@ public class OverviewOrderTest {
     }
 
     private static LoadedPackage withClasses(Optional<String> readme) {
+        return withClasses(CLASSES, readme);
+    }
+
+    private static LoadedPackage withClasses(List<String> classes, Optional<String> readme) {
         Payload payload = Payload.pkg();
-        payload.with("classes", CLASSES.stream().map(name -> Decl.client(name, Decl.method("run")))
+        payload.with("classes", classes.stream().map(name -> Decl.client(name, Decl.method("run")))
                 .toArray(Decl[]::new));
         return loaded(payload, readme);
     }

@@ -59,6 +59,7 @@ public final class Readme {
     private static final String FENCE_BACKTICKS = "```";
     private static final String FENCE_TILDES = "~~~";
     private static final String LINE_BREAK = "\\r?\\n";
+    private static final Pattern INLINE_CODE = Pattern.compile("(`+)(.+?)\\1");
     private static final Pattern HEADING =
             Pattern.compile("^ {0,3}#{1,6}(?:[ \\t]+(.*?))?(?:[ \\t]+#+)?[ \\t]*$");
 
@@ -180,6 +181,31 @@ public final class Readme {
         }
         flush(sections, title, body);
         return List.copyOf(sections);
+    }
+
+    /** The code of {@code markdown}: every fenced block's lines and every inline code span of its prose. */
+    static String codeOf(String markdown) {
+        StringBuilder code = new StringBuilder();
+        String fence = null;
+        for (String line : markdown.split(LINE_BREAK, -1)) {
+            String stripped = line.stripLeading();
+            if (fence != null) {
+                if (closesFence(stripped, fence)) {
+                    fence = null;
+                } else {
+                    code.append(line).append('\n');
+                }
+                continue;
+            }
+            fence = openedFence(stripped);
+            if (fence == null) {
+                Matcher span = INLINE_CODE.matcher(line);
+                while (span.find()) {
+                    code.append(span.group(2)).append('\n');
+                }
+            }
+        }
+        return code.toString();
     }
 
     // The fence's marker run (``` or ~~~, possibly longer) when the line opens one, else null.
