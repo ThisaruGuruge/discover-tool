@@ -170,6 +170,8 @@ public final class Containers {
 
     private static final char MEMBER_ACCESS = '.';
 
+    private static final int PATH_AND_ACCESSOR = 2;
+
     private static final String VOWELS = "aeiou";
 
     private Containers() {
@@ -228,6 +230,10 @@ public final class Containers {
                 .toList();
         if (pathOwners.size() == 1) {
             return answer(loaded, scope, pathOwners.get(0), selectors, options);
+        }
+        List<Surface.Container> withPaths = containers.stream().filter(Surface.Container::hasPaths).toList();
+        if (withPaths.size() == 1 && !reached(withPaths.get(0), selectors.subList(0, 1)).isEmpty()) {
+            return answer(loaded, scope, withPaths.get(0), selectors, options);
         }
         return Result.err(notInBucket(loaded, scope, options));
     }
@@ -770,6 +776,23 @@ public final class Containers {
                 "List what is under " + path + ": " + Failure.quoted(listing) + ".", listing);
     }
 
+    // A path typed as several words before its accessor: the command with the path joined, when that is declared.
+    private static Optional<Failure> typedApart(LoadedPackage loaded, Surface.Scope scope,
+            Surface.Container container, List<String> selectors, Options options) {
+        if (!container.hasPaths() || selectors.size() <= PATH_AND_ACCESSOR) {
+            return Optional.empty();
+        }
+        int last = selectors.size() - 1;
+        List<String> joined = List.of(String.join(PATH_SEPARATOR, selectors.subList(0, last)), selectors.get(last));
+        if (select(container, joined).isEmpty()) {
+            return Optional.empty();
+        }
+        String command = baseCommand(loaded, scope, container) + shellWords(joined) + filterArgument(options);
+        return Optional.of(loaded.symbolNotFound(selectors, named(String.join(" ", selectors))
+                + " is not a resource method of " + container.plainName() + " in " + loaded.place() + ".",
+                "Join its path with " + PATH_SEPARATOR + ": " + Failure.quoted(command) + ".", command));
+    }
+
     // The deepest path prefix a missed selector resolves before it stops matching: a whole path whose accessor
     // missed, or the segments before the first one that matched nothing. Either selector of a pair may be the path.
     private static List<String> reached(Surface.Container container, List<String> selectors) {
@@ -855,7 +878,10 @@ public final class Containers {
         int read = consumed(container, selectors);
         List<Entry> selected = select(container, selectors.subList(0, read));
         if (selected.isEmpty() && read > 0) {
-            return Result.err(miss(loaded, scope, container, selectors.subList(0, read), options));
+            Optional<Failure> apart = typedApart(loaded, scope, container, selectors, options);
+            return Result.err(apart.isPresent()
+                    ? apart.get()
+                    : miss(loaded, scope, container, selectors.subList(0, read), options));
         }
         if (read < selectors.size()) {
             return Result.err(unread(loaded, scope, container, selectors, read, options));

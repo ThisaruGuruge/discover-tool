@@ -555,7 +555,8 @@ The entries a `--filter` matched only in their documentation are named after the
 path, parameter or type, and paged after them under the same `--page` — each is one more call away by name.
 
 A selector that matches nothing fails (exit 1, see The contract, below), suggesting the listing to choose from
-rather than a guess at what was meant:
+rather than a guess at what was meant — the deepest path level it reached, or, for a path typed as several words
+(`gists public get`), the command with the path joined (`gists/public get`) when that is declared:
 
 ```
 $ bal discover ballerinax/kafka client Producer sendd

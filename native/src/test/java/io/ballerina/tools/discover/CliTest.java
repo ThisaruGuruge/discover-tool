@@ -331,6 +331,27 @@ public class CliTest {
     }
 
     @Test
+    public void aPathTypedApartOrMissedWithoutItsContainerPointsAtTheDeclaredPath() {
+        String client = "bal discover ballerinax/github client Client";
+        for (Unread miss : List.of(
+                new Unread("ballerinax__github", List.of("ballerinax/github", "client", "Client", "gists", "public",
+                        "get"), "gists public get", client + " gists/public get"),
+                new Unread("ballerinax__github", List.of("ballerinax/github", "client", "gists", "public", "get"),
+                        "gists public get", client + " gists/public get"),
+                new Unread("ballerinax__github", List.of("ballerinax/github", "client", "gists/nope", "get"),
+                        "gists/nope get", client + " gists"))) {
+            String label = String.join(" ", miss.argv());
+            Capture capture = new Capture();
+            Assert.assertEquals(Cli.run(miss.argv(), capture.streams(),
+                    centralFor(miss.slug(), FixtureCorpus.FIXTURE_VERSION.text())), 1, label);
+            Assert.assertEquals(capture.field("kind"), "symbol-not-found", label);
+            Assert.assertTrue(capture.field("message").startsWith("'" + miss.unread() + "' is not a resource "),
+                    capture.stderr());
+            Assert.assertEquals(capture.field("command"), miss.command(), label);
+        }
+    }
+
+    @Test
     public void theHeaderSpellsATypedEscapedPathAsItIsPrinted() {
         Capture capture = new Capture();
         Assert.assertEquals(Cli.run(List.of("ballerinax/github", "client", "Client", "gists/'public", "get"),
