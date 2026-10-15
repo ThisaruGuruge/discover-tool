@@ -149,17 +149,22 @@ public final class Types {
      * @param command the command the bucket is listed with, e.g. {@code bal discover ballerina/io type}
      */
     public static Failure.Validation misuse(String command, Options options) {
+        if (options.selectors().isEmpty()) {
+            return null;
+        }
+        String first = command + " " + Texts.shellWord(Identifiers.plain(options.selectors().get(0)));
         if (options.selectors().size() > 1) {
             return new Failure.Validation(
                     "The type bucket takes one declaration name; got " + options.selectors().size() + ".",
-                    "Name one declaration, or list them all: `" + command + "`.");
+                    "Name one declaration: " + Failure.quoted(first) + ".", first);
         }
-        if (options.selectors().size() == 1 && options.filtered()) {
+        if (options.filtered()) {
             return new Failure.Validation(
                     "The --filter option narrows a listing, and '" + options.selectors().get(0)
                             + "' names one declaration.",
-                    "Drop --filter, or drop the name: `" + command + " --filter "
-                            + Texts.shellWord(options.filter()) + "`.");
+                    "Drop --filter: " + Failure.quoted(first) + "; or drop the name: "
+                            + Failure.quoted(command + " --filter " + Texts.shellWord(options.filter())) + ".",
+                    first);
         }
         return null;
     }

@@ -1800,14 +1800,15 @@ public class CliTest {
 
         Capture types = new Capture();
         Assert.assertEquals(Cli.run(List.of("ballerina/io", "type", "A", "B"), types.streams(), never()), 2);
-        Assert.assertEquals(types.field("suggestion"), "Name one declaration, or list them all: "
-                + "`bal discover ballerina/io type`.");
+        Assert.assertEquals(types.field("suggestion"), "Name one declaration: `bal discover ballerina/io type A`.");
+        Assert.assertEquals(types.field("command"), "bal discover ballerina/io type A");
 
         Capture filtered = new Capture();
         Assert.assertEquals(Cli.run(List.of("ballerina/io", "type", "Error", "--filter", "x"), filtered.streams(),
                 never()), 2);
-        Assert.assertEquals(filtered.field("suggestion"), "Drop --filter, or drop the name: "
-                + "`bal discover ballerina/io type --filter x`.");
+        Assert.assertEquals(filtered.field("suggestion"), "Drop --filter: `bal discover ballerina/io type Error`; "
+                + "or drop the name: `bal discover ballerina/io type --filter x`.");
+        Assert.assertEquals(filtered.field("command"), "bal discover ballerina/io type Error");
     }
 
     @Test
