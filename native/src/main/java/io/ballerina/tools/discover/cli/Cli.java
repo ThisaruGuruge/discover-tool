@@ -504,12 +504,13 @@ public final class Cli {
                     + ".", fixedCommand(root, coordinate, scope.verb(), names));
         }
         String declarers = "no " + CONTAINER_BUCKETS + " in " + loaded.place() + " declares ";
-        Surface.Scope withMethods = resource && names.isEmpty()
-                ? Containers.memberBucket(loaded, false, names).orElse(null)
+        Surface.Scope otherKind = names.isEmpty()
+                ? Containers.memberBucket(loaded, !resource, names).orElse(null)
                 : null;
-        if (withMethods != null) {
-            return runInstead(lead + ", and " + declarers + member + "; its methods are read under "
-                    + withMethods.verb() + ".", fixedCommand(root, coordinate, withMethods.verb(), names));
+        if (otherKind != null) {
+            return runInstead(lead + ", and " + declarers + member + "; its " + (resource ? "methods" : "resource "
+                    + "methods") + " are read under " + otherKind.verb() + ".",
+                    fixedCommand(root, coordinate, otherKind.verb(), names));
         }
         if (names.isEmpty()) {
             String overview = coordinate.command(root.module);

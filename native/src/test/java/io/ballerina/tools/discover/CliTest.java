@@ -319,6 +319,11 @@ public class CliTest {
         Assert.assertEquals(Cli.run(List.of("ballerinax/kafka", "resource"), resource.streams(),
                 centralFor("ballerinax__kafka", "4.6.5")), 2);
         Assert.assertEquals(resource.field("command"), "bal discover ballerinax/kafka client", resource.stderr());
+
+        Capture method = new Capture();
+        Assert.assertEquals(Cli.run(List.of("ballerinax/github", "method"), method.streams(),
+                centralFor("ballerinax__github", "4.6.5")), 2);
+        Assert.assertEquals(method.field("command"), "bal discover ballerinax/github client", method.stderr());
     }
 
     // A selector the container does not read, with the command that drops it.
