@@ -341,18 +341,22 @@ public final class Containers {
         }
         String search = bucketCommand(loaded, Search.BUCKET) + " " + shellWord(keyword.get());
         return loaded.symbolNotFound(List.of(token), message,
-                "Search the package for it: " + Failure.quoted(search) + "; or list " + list, search);
+                Search.SEARCH_FOR_IT + Failure.quoted(search) + "; or list " + list, search);
     }
 
-    // The word a search finds a name by: a path's first literal segment, since a search matches one segment.
-    private static Optional<String> searchKeyword(String token) {
+    /**
+     * The word a search finds a typed name by: a path's first literal segment, since a search matches one segment,
+     * and a dotted {@code Container.member}'s member. Empty for a path with no literal segment.
+     */
+    public static Optional<String> searchKeyword(String token) {
         String plain = PathTree.plainSelector(token);
-        if (!plain.contains(PATH_SEPARATOR)) {
-            return Optional.of(plain);
+        if (plain.contains(PATH_SEPARATOR)) {
+            return PathTree.splitPath(plain).stream()
+                    .filter(segment -> !segment.isEmpty() && !segment.startsWith(PathTree.PARAMETER))
+                    .findFirst();
         }
-        return PathTree.splitPath(plain).stream()
-                .filter(segment -> !segment.isEmpty() && !segment.startsWith(PathTree.PARAMETER))
-                .findFirst();
+        int dot = plain.lastIndexOf(MEMBER_ACCESS);
+        return Optional.of(dot >= 0 && dot < plain.length() - 1 ? plain.substring(dot + 1) : plain);
     }
 
     // `Producer.send`, the way code calls it: the member on the container named before the dot.
