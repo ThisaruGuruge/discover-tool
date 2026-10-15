@@ -465,16 +465,25 @@ public class ViewsTest {
     }
 
     @Test
-    public void aContainerThatIsNotThereFailsWithTheBucketsListing() {
+    public void aContainerThatIsNotThereFailsWithTheSearchAndTheBucketsListing() {
         LoadedPackage http = FixtureCorpus.loadedFixture("ballerina__http");
-        assertMiss(miss(http, Surface.Scope.CLIENT, "client"), "'client' is not a client in " + http.label() + ".",
-                "List the clients: `bal discover ballerina/http client`.", "bal discover ballerina/http client");
+        assertMiss(miss(http, Surface.Scope.CLIENT, "client"),
+                "'client' is not a client, nor a member of any client, in " + http.label() + ".",
+                "Search the package for it: `bal discover ballerina/http search client`; or list the clients: "
+                        + "`bal discover ballerina/http client`.", "bal discover ballerina/http search client");
         assertMiss(miss(http, Surface.Scope.MODULE, "nosuch"), "'nosuch' is not a function in " + http.label() + ".",
                 "List the functions: `bal discover ballerina/http funcs`.", "bal discover ballerina/http funcs");
         // A name nothing in the bucket declares, whether as a container, a member or a path.
         LoadedPackage github = FixtureCorpus.loadedFixture("ballerinax__github");
-        assertMiss(miss(github, Surface.Scope.CLIENT, "gist"), "'gist' is not a client in " + github.label() + ".",
-                "List the clients: `bal discover ballerinax/github client`.", "bal discover ballerinax/github client");
+        assertMiss(miss(github, Surface.Scope.CLIENT, "gist"),
+                "'gist' is not a client, nor a member of any client, in " + github.label() + ".",
+                "Search the package for it: `bal discover ballerinax/github search gist`; or list the clients: "
+                        + "`bal discover ballerinax/github client`.", "bal discover ballerinax/github search gist");
+        LoadedPackage kafka = FixtureCorpus.loadedFixture("ballerinax__kafka");
+        assertMiss(miss(kafka, Surface.Scope.CLASS, "Producer.send"),
+                "'Producer.send' is not a class, nor a member of any class, in " + kafka.label() + ".",
+                "Write the container and the member apart: `bal discover ballerinax/kafka client Producer send`.",
+                "bal discover ballerinax/kafka client Producer send");
     }
 
     @Test

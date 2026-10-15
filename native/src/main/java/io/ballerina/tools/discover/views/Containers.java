@@ -168,6 +168,8 @@ public final class Containers {
 
     private static final String PATH_SEPARATOR = "/";
 
+    private static final char MEMBER_ACCESS = '.';
+
     private static final String VOWELS = "aeiou";
 
     private Containers() {
@@ -312,15 +314,61 @@ public final class Containers {
                 owners.subList(0, Math.min(owners.size(), MAX_ENTRIES)));
     }
 
+    // A name a container bucket holds nowhere may have been a container or a member of one: the package's search
+    // for it, beside the bucket's listing.
     private static Failure notInBucket(LoadedPackage loaded, Surface.Scope scope, Options options) {
-        Optional<Failure> misplaced = heldElsewhere(loaded, scope, options);
+        String token = options.selectors().get(0);
+        String message = scope == Surface.Scope.MODULE
+                ? notA(loaded, token, scope.noun())
+                : named(token) + " is not " + article(scope.noun()) + ", nor a member of any " + scope.noun()
+                        + ", in " + loaded.place() + ".";
+        Optional<Failure> misplaced = heldElsewhere(loaded, scope, options)
+                .or(() -> dotted(loaded, message, options));
         if (misplaced.isPresent()) {
             return misplaced.get();
         }
-        String token = options.selectors().get(0);
         String listing = bucketCommand(loaded, scope.verb());
-        return loaded.symbolNotFound(List.of(token), notA(loaded, token, scope.noun()),
-                "List the " + scope.plural() + ": " + Failure.quoted(listing) + ".", listing);
+        String list = "the " + scope.plural() + ": " + Failure.quoted(listing) + ".";
+        Optional<String> keyword = searchKeyword(token);
+        if (scope == Surface.Scope.MODULE || keyword.isEmpty()) {
+            return loaded.symbolNotFound(List.of(token), message, "List " + list, listing);
+        }
+        String search = bucketCommand(loaded, Search.BUCKET) + " " + shellWord(keyword.get());
+        return loaded.symbolNotFound(List.of(token), message,
+                "Search the package for it: " + Failure.quoted(search) + "; or list " + list, search);
+    }
+
+    // The word a search finds a name by: a path's first literal segment, since a search matches one segment.
+    private static Optional<String> searchKeyword(String token) {
+        String plain = PathTree.plainSelector(token);
+        if (!plain.contains(PATH_SEPARATOR)) {
+            return Optional.of(plain);
+        }
+        return PathTree.splitPath(plain).stream()
+                .filter(segment -> !segment.isEmpty() && !segment.startsWith(PathTree.PARAMETER))
+                .findFirst();
+    }
+
+    // `Producer.send`, the way code calls it: the member on the container named before the dot.
+    private static Optional<Failure> dotted(LoadedPackage loaded, String message, Options options) {
+        List<String> selectors = options.selectors();
+        String token = selectors.get(0);
+        int dot = token.indexOf(MEMBER_ACCESS);
+        if (dot <= 0) {
+            return Optional.empty();
+        }
+        String member = token.substring(dot + 1);
+        for (Surface.Scope each : Surface.Scope.values()) {
+            Optional<Surface.Container> container = each == Surface.Scope.MODULE
+                    ? Optional.empty()
+                    : Surface.byName(Surface.of(loaded.library(), each), token.substring(0, dot));
+            if (container.isPresent() && container.get().member(member).isPresent()) {
+                return Optional.of(misplaced(loaded, token, message, "Write the container and the member apart",
+                        baseCommand(loaded, each, container.get()) + " " + shellWord(member)
+                                + shellWords(selectors.subList(1, selectors.size())) + filterArgument(options)));
+            }
+        }
+        return Optional.empty();
     }
 
     /**

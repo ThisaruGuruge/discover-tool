@@ -563,7 +563,9 @@ error: 'sendd' is not a member of Producer in ballerinax/kafka:4.6.5.
 
 So does a name asked in a bucket that does not hold it — the suggestion is the command in the bucket that does,
 `type` for a record, enum, listener or other type, or the owner's command for a member another bucket's
-container declares — and a member several containers of the bucket declare, with each one's command:
+container declares, the command that writes `Producer.send` as `Producer send` — and a member several
+containers of the bucket declare, with each one's command (a name nothing in the package holds gets the
+package's search for it, beside the bucket's listing, as below):
 
 ```
 $ bal discover ballerinax/kafka client Listener
@@ -827,7 +829,7 @@ name, it carries no `command` and lists them in `owners` instead:
 
 ```
 $ bal discover ballerinax/kafka client NoSuchContainer | cat
-{"kind":"symbol-not-found","message":"'NoSuchContainer' is not a client in ballerinax/kafka:4.6.5.","qualified":"ballerinax/kafka","version":"4.6.5","requested":["NoSuchContainer"],"suggestion":"List the clients: `bal discover ballerinax/kafka client`.","command":"bal discover ballerinax/kafka client"}
+{"kind":"symbol-not-found","message":"'NoSuchContainer' is not a client, nor a member of any client, in ballerinax/kafka:4.6.5.","qualified":"ballerinax/kafka","version":"4.6.5","requested":["NoSuchContainer"],"suggestion":"Search the package for it: `bal discover ballerinax/kafka search NoSuchContainer`; or list the clients: `bal discover ballerinax/kafka client`.","command":"bal discover ballerinax/kafka search NoSuchContainer"}
 ```
 
 In text it is `error: <message>`, then the suggestion and anything else the failure carries (schema issues, a

@@ -310,11 +310,11 @@ public class CliTest {
         String http = "bal discover ballerina/http client";
         for (Unread miss : List.of(
                 new Unread("ballerinax__twilio", List.of("ballerinax/twilio", "client", "createaccount", "extra"),
-                        "createaccount", "bal discover ballerinax/twilio client"),
+                        "createaccount", "bal discover ballerinax/twilio search createaccount"),
                 new Unread("ballerina__http", List.of("ballerina/http", "client", "Cookie", "isValid", "junk"),
                         "Cookie", "bal discover ballerina/http class Cookie isValid junk"),
                 new Unread("ballerina__http", List.of("ballerina/http", "client", "forwar", "extra"), "forwar",
-                        http),
+                        "bal discover ballerina/http search forwar"),
                 new Unread("ballerina__http", List.of("ballerina/http", "client", "Client", "forwar", "extra"),
                         "forwar extra", http + " Client"),
                 new Unread("ballerinax__github", List.of("ballerinax/github", "client", "Client", "repos", ":owner",
@@ -905,7 +905,7 @@ public class CliTest {
     }
 
     @Test
-    public void namingSomethingNoBucketHoldsFailsWithTheBucketsListingAndNoCandidates() {
+    public void namingSomethingNoBucketHoldsFailsWithThePackagesSearchAndNoCandidates() {
         Capture capture = new Capture();
         int exitCode = Cli.run(List.of("ballerina/http", "client", "FailoverClientt"), capture.streams(),
                 centralFor("ballerina__http", "2.16.6"));
@@ -913,7 +913,9 @@ public class CliTest {
         Assert.assertEquals(capture.stdout(), "");
         Assert.assertEquals(capture.field("kind"), "symbol-not-found");
         Assert.assertFalse(capture.failure().has("candidates"), capture.stderr());
-        Assert.assertEquals(capture.field("command"), "bal discover ballerina/http client");
+        Assert.assertEquals(capture.field("command"), "bal discover ballerina/http search FailoverClientt");
+        Assert.assertTrue(capture.field("suggestion").endsWith("or list the clients: `bal discover ballerina/http "
+                + "client`."), capture.stderr());
         Assert.assertTrue(capture.failure().getAsJsonArray("requested").toString().contains("FailoverClientt"),
                 capture.stderr());
     }
