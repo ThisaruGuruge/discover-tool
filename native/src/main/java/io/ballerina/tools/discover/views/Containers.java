@@ -487,8 +487,17 @@ public final class Containers {
             return misplaced.get();
         }
         String listing = bucketCommand(loaded, scope.commandNoun());
-        return loaded.symbolNotFound(List.of(token), notA(loaded, token, scope.noun()),
-                "List the " + scope.plural() + ": " + Failure.quoted(listing) + ".", listing);
+        if (scope == Surface.Scope.MODULE) {
+            return loaded.symbolNotFound(List.of(token), notA(loaded, token, scope.noun()),
+                    "List the " + scope.plural() + ": " + Failure.quoted(listing) + ".", listing);
+        }
+        // Nothing holds the name as a container or as a member of one: the search finds it if anything does.
+        String search = loaded.command(Command.SEARCH, PathTree.plainSelector(token)).text();
+        return loaded.symbolNotFound(List.of(token),
+                named(token) + " is not " + article(scope.noun()) + ", nor a member of any " + scope.noun() + ", in "
+                        + loaded.place() + ".",
+                "Search the package for it: " + Failure.quoted(search) + "; or list the " + scope.plural() + ": "
+                        + Failure.quoted(listing) + ".", search);
     }
 
     /**
