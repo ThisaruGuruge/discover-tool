@@ -346,9 +346,18 @@ public class GrammarTest {
     }
 
     @Test
-    public void aMethodAskedOfAPackageWithOnlyResourcesPointsAtTheResources() {
-        CliTest.Capture none = failure(NOT_FOUND, "ballerinax__github", "method", "-p", GITHUB);
-        Assert.assertEquals(none.field("command"), "bal discover resource -p " + GITHUB, none.stderr());
+    public void aMethodAskedOfAPackageWithOnlyResourcesPointsAtTheirContainers() {
+        CliTest.Capture none = failure(USAGE, "ballerinax__github", "method", "-p", GITHUB);
+        Assert.assertEquals(none.field("command"), "bal discover client -p " + GITHUB, none.stderr());
+    }
+
+    @Test
+    public void aContainerNounRecoversADottedMemberInOneHop() {
+        for (String noun : List.of("client", "class")) {
+            CliTest.Capture dotted = failure(NOT_FOUND, "ballerinax__kafka", noun, "Producer.send", "-p", KAFKA);
+            Assert.assertEquals(dotted.field("command"), "bal discover method send -p " + KAFKA
+                    + " --client Producer", dotted.stderr());
+        }
     }
 
     @Test
