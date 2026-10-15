@@ -294,7 +294,10 @@ public class GrammarTest {
                         "bal discover function printInfo -p ballerina/log"},
                 {List.of("methods", "send", "-p", KAFKA, "--client", "Producer"),
                         "bal discover method send -p " + KAFKA + " --client Producer"},
-                {List.of("-p", KAFKA, "clients"), "bal discover client -p " + KAFKA}};
+                {List.of("-p", KAFKA, "clients"), "bal discover client -p " + KAFKA},
+                {List.of("packages", "-p", KAFKA), "bal discover package " + KAFKA},
+                {List.of("classes", "Producer", "send", "-p", KAFKA),
+                        "bal discover method send -p " + KAFKA + " --class Producer"}};
     }
 
     @Test(dataProvider = "aliases")

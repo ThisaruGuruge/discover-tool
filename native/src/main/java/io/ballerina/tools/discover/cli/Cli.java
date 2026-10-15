@@ -438,9 +438,13 @@ public final class Cli {
         try {
             CommandLine.ParseResult parsed = probe.line().parseArgs(fixed.toArray(new String[0]));
             Invocation call = Invocation.of(probe.root(), noun, probe.nouns().get(noun));
-            if (parsed.hasSubcommand() && call.coordinate() != null && misuse(probe, call, literalWords(fixed))
-                    == null) {
-                String command = call.paged(call.command()).text();
+            Failure.Validation further = parsed.hasSubcommand() ? misuse(probe, call, literalWords(fixed)) : null;
+            // A package given makes the rest fixable in the same hop; without one, only its shape is known.
+            boolean located = call.coordinate() != null || call.pkg() != null;
+            String command = !parsed.hasSubcommand() || !located ? null
+                    : further == null ? call.paged(call.command()).text()
+                    : further.command();
+            if (command != null) {
                 return new Failure.Validation(message, "Run " + Failure.quoted(command) + ".", command);
             }
         } catch (CommandLine.ParameterException unparsed) {
