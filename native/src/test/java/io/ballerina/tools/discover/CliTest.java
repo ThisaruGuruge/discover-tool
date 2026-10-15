@@ -248,6 +248,30 @@ public class CliTest {
         }
     }
 
+    @Test
+    public void aBucketTypedWhereThePackageGoesIsMovedBehindThePackageOrPointsAtTheSearch() {
+        String message = "'client' is not a package; the package goes first.";
+        Capture moved = new Capture();
+        Assert.assertEquals(Cli.run(List.of("client", "Producer", "ballerinax/kafka"), moved.streams(), never()), 2);
+        Assert.assertEquals(moved.field("message"), message, moved.stderr());
+        Assert.assertEquals(moved.field("command"), "bal discover ballerinax/kafka client Producer", moved.stderr());
+
+        Capture alias = new Capture();
+        Assert.assertEquals(Cli.run(List.of("functions", "ballerinax/kafka"), alias.streams(), never()), 2);
+        Assert.assertEquals(alias.field("command"), "bal discover ballerinax/kafka funcs", alias.stderr());
+
+        Capture missing = new Capture();
+        Assert.assertEquals(Cli.run(List.of("client", "send"), missing.streams(), never()), 2);
+        Assert.assertEquals(missing.field("message"), message, missing.stderr());
+        Assert.assertEquals(missing.field("suggestion"), "Write `bal discover <org>/<name> client send`; to find the "
+                + "package that declares 'send': `bal discover search send`.", missing.stderr());
+        Assert.assertEquals(missing.field("command"), "bal discover search send", "never a package not given");
+
+        Capture bare = new Capture();
+        Assert.assertEquals(Cli.run(List.of("type"), bare.streams(), never()), 2);
+        Assert.assertNull(bare.field("command"), bare.stderr());
+    }
+
     // A selector the container does not read, with the command that drops it.
     private record Unread(String slug, List<String> argv, String unread, String command) { }
 

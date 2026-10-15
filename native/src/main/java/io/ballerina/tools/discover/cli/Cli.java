@@ -89,6 +89,8 @@ public final class Cli {
 
     private static final String PLACEHOLDER_VERSION = "<version>";
 
+    private static final String PLACEHOLDER_KEYWORD = "<keyword>";
+
     private static final String WRITE_VERSION = "To read a specific version, write it after the package: ";
 
     private static final String A_RESOURCE_METHOD = "a resource method";
@@ -180,6 +182,11 @@ public final class Cli {
             return usage.error(new Failure.Validation(
                     "A package is required.",
                     "Pass '<org>/<name>', e.g. bal discover ballerinax/github."));
+        }
+
+        Failure.Validation bucketFirst = bucketBeforePackage(root);
+        if (bucketFirst != null) {
+            return usage.error(bucketFirst);
         }
 
         Result<Coordinate> coordinate = Coordinate.parse(root.pkg, Coordinate.moduleArgument(root.module) + tail(root));
@@ -362,6 +369,41 @@ public final class Cli {
         return new Failure.Validation(
                 "This answer has only one page, so --page does not apply.",
                 "Drop --page: " + Failure.quoted(command) + ".", command);
+    }
+
+    // A bucket typed where the package goes: the command with the package, when it was typed next, moved in front;
+    // else the command's shape and how to find the package. Never a package the caller did not give.
+    private static Failure.Validation bucketBeforePackage(Commands.Root root) {
+        String word = root.pkg;
+        String bucket = Commands.BUCKETS.contains(word) || MEMBER_WORDS.containsKey(word) ? word
+                : BUCKET_ALIASES.get(word);
+        if (bucket == null) {
+            return null;
+        }
+        String message = "'" + word + "' is not a package; the package goes first.";
+        List<String> words = rest(root);
+        List<String> ends = words.isEmpty() ? List.of() : List.of(words.get(0), words.get(words.size() - 1));
+        for (String typed : ends) {
+            Result<Coordinate> pkg = typed.contains(PathTree.SEPARATOR) ? Coordinate.parse(typed) : null;
+            if (pkg != null && pkg.isOk()) {
+                List<String> others = new ArrayList<>(words);
+                others.remove(typed);
+                return runInstead(message, fixedCommand(root, pkg.value(), bucket, others));
+            }
+        }
+        List<String> shape = new ArrayList<>(List.of(bucket));
+        shape.addAll(words);
+        String write = "Write " + Failure.quoted(Coordinate.COMMAND + PLACEHOLDER_PACKAGE
+                + Coordinate.moduleArgument(root.module) + tail(shape, root.filter, root.page));
+        if (words.isEmpty() || Readme.BUCKET.equals(bucket)) {
+            return new Failure.Validation(message, write + "; to find the package: "
+                    + Failure.quoted(Coordinate.COMMAND + SearchCentral.VERB + " " + PLACEHOLDER_KEYWORD) + ".");
+        }
+        String name = PathTree.plainSelector(words.get(0));
+        String search = SearchCentral.command(List.of(name));
+        return new Failure.Validation(message,
+                write + "; to find the package that declares '" + name + "': " + Failure.quoted(search) + ".",
+                search);
     }
 
     // A plural or another spelling of a bucket, or a word for the package itself: the command it meant. Anything else

@@ -843,7 +843,8 @@ Run `bal discover --help` for details.
 
 A usage error is a `validation` failure found before anything is looked up: an unknown option, an option with
 a missing or invalid value (`--output xml`, `--page x`, `--page 0`, `--refresh=yes`) or given twice, no package,
-a malformed package name or incomplete version, `--version`, a version typed as a positional, an unknown bucket,
+a malformed package name or incomplete version (a bucket typed where the package goes is answered with the
+package moved in front of it, or with the Central search for the name that follows), `--version`, a version typed as a positional, an unknown bucket,
 more than one name after `funcs` or `type`, a `type` name with `--filter`, or a `search` with no keyword, with
 `--filter`, or (across Central) with `--module`. An unknown bucket's `command` searches the package for the
 word, since it is most often a member typed without its bucket (`bal discover ballerinax/kafka close`); a
