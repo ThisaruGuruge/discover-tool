@@ -195,8 +195,10 @@ public final class Cli {
         }
 
         // A member word's bucket is known only once the package is read, so the package is moved in front first.
-        if (!movedPackage && MEMBER_WORDS.containsKey(root.pkg) && typedPackage(rest(root)) != null) {
-            return run(packageInFront(argv, grammar), streams, http, projectDir, interactive, true);
+        String typed = movedPackage || !MEMBER_WORDS.containsKey(root.pkg) ? null : typedPackage(rest(root));
+        if (typed != null) {
+            int packageAt = rest(root).indexOf(typed) + 1;
+            return run(packageInFront(argv, grammar, packageAt), streams, http, projectDir, interactive, true);
         }
         Failure.Validation bucketFirst = bucketBeforePackage(root);
         if (bucketFirst != null) {
@@ -438,18 +440,26 @@ public final class Cli {
         return "'" + word + "' is not a bucket";
     }
 
-    // The last word when it is a package coordinate, else null. Only the last: a resource path reads as a
-    // coordinate too, and it comes before its accessor.
+    // The package typed among the words, or null: the last word, or the first when a path follows it. A resource
+    // path reads as a coordinate too, and it comes before its accessor, never before the package.
     private static String typedPackage(List<String> words) {
         if (words.isEmpty()) {
             return null;
         }
         String last = words.get(words.size() - 1);
-        return last.contains(PathTree.SEPARATOR) && Coordinate.parse(last).isOk() ? last : null;
+        if (isCoordinate(last)) {
+            return last;
+        }
+        String first = words.get(0);
+        return words.size() > 1 && words.get(1).contains(PathTree.SEPARATOR) && isCoordinate(first) ? first : null;
     }
 
-    // argv with its last positional word, the package, moved to the first positional place.
-    private static List<String> packageInFront(List<String> argv, Commands.Grammar grammar) {
+    private static boolean isCoordinate(String word) {
+        return word.contains(PathTree.SEPARATOR) && Coordinate.parse(word).isOk();
+    }
+
+    // argv with the package, a positional word after the first, moved to the first positional place.
+    private static List<String> packageInFront(List<String> argv, Commands.Grammar grammar, int packageAt) {
         Set<String> takesValue = valueOptions(grammar);
         List<Integer> positions = new ArrayList<>();
         boolean literal = false;
@@ -464,7 +474,7 @@ public final class Cli {
             }
         }
         List<String> reordered = new ArrayList<>(argv);
-        String pkg = reordered.remove((int) positions.get(positions.size() - 1));
+        String pkg = reordered.remove((int) positions.get(packageAt));
         reordered.add(positions.get(0), pkg);
         return reordered;
     }

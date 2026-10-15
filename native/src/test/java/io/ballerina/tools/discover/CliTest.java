@@ -290,6 +290,11 @@ public class CliTest {
                     + " gists/public get`"), capture.stderr());
             Assert.assertEquals(capture.field("command"), "bal discover search gists", capture.stderr());
         }
+        Capture first = new Capture();
+        Assert.assertEquals(Cli.run(List.of("resource", "ballerinax/github", "gists/public", "get"), first.streams(),
+                centralFor("ballerinax__github", FixtureCorpus.FIXTURE_VERSION.text())), 2);
+        Assert.assertEquals(first.field("command"), "bal discover ballerinax/github client gists/public get",
+                "a package followed by a path is the package");
     }
 
     @Test
