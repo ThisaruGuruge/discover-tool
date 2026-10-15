@@ -279,6 +279,48 @@ public class CliTest {
         Assert.assertNull(bare.field("command"), bare.stderr());
     }
 
+    @Test
+    public void aPathTypedWhereNoPackageIsGivenIsNeverTakenForThePackage() {
+        for (List<String> argv : List.of(List.of("resource", "gists/public", "get"),
+                List.of("client", "gists/public", "get"))) {
+            Capture capture = new Capture();
+            Assert.assertEquals(Cli.run(argv, capture.streams(), never()), 2, argv.toString());
+            Assert.assertEquals(capture.field("kind"), "validation", capture.stderr());
+            Assert.assertTrue(capture.field("suggestion").startsWith("Write `bal discover <org>/<name> " + argv.get(0)
+                    + " gists/public get`"), capture.stderr());
+            Assert.assertEquals(capture.field("command"), "bal discover search gists", capture.stderr());
+        }
+    }
+
+    @Test
+    public void aMemberWordWhosePackageCannotBeReadIsStillAUsageError() {
+        HttpOptions down = options(FakeTransport.always(FakeTransport.status(503)));
+        Capture typed = new Capture();
+        Assert.assertEquals(Cli.run(List.of("ballerinax/kafka", "method", "send"), typed.streams(), down), 2);
+        Assert.assertEquals(typed.field("kind"), "validation", typed.stderr());
+        Assert.assertTrue(typed.field("message").startsWith("'method' is not a bucket; a method is read under its "
+                + "container's bucket (client, service or class). The package could not be read: "), typed.stderr());
+        Assert.assertEquals(typed.field("command"), "bal discover ballerinax/kafka search send", typed.stderr());
+
+        Capture moved = new Capture();
+        Assert.assertEquals(Cli.run(List.of("method", "send", "nosuch/pkg"), moved.streams(), down), 2);
+        Assert.assertEquals(moved.field("message"), "'method' is not a package; the package goes first.",
+                moved.stderr());
+        Assert.assertEquals(moved.field("command"), "bal discover search send", "never the package it could not read");
+    }
+
+    @Test
+    public void aWordForABucketWhoseCommandIsStillMisusedGetsBothFixes() {
+        Capture types = new Capture();
+        Assert.assertEquals(Cli.run(List.of("ballerinax/kafka", "types", "A", "B"), types.streams(), never()), 2);
+        Assert.assertEquals(types.field("command"), "bal discover ballerinax/kafka type A", types.stderr());
+
+        Capture resource = new Capture();
+        Assert.assertEquals(Cli.run(List.of("ballerinax/kafka", "resource"), resource.streams(),
+                centralFor("ballerinax__kafka", "4.6.5")), 2);
+        Assert.assertEquals(resource.field("command"), "bal discover ballerinax/kafka client", resource.stderr());
+    }
+
     // A selector the container does not read, with the command that drops it.
     private record Unread(String slug, List<String> argv, String unread, String command) { }
 

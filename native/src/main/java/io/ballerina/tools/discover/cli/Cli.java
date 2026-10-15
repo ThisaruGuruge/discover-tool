@@ -91,6 +91,10 @@ public final class Cli {
 
     private static final String PLACEHOLDER_KEYWORD = "<keyword>";
 
+    private static final String OPTION_START = "-";
+
+    private static final String END_OF_OPTIONS = "--";
+
     private static final String WRITE_VERSION = "To read a specific version, write it after the package: ";
 
     private static final String A_RESOURCE_METHOD = "a resource method";
@@ -144,6 +148,12 @@ public final class Cli {
      */
     public static int run(
             List<String> argv, Streams streams, HttpOptions http, String projectDir, boolean interactive) {
+        return run(argv, streams, http, projectDir, interactive, false);
+    }
+
+    // `movedPackage`: argv is the caller's with the package, typed last after a member word, moved in front.
+    private static int run(List<String> argv, Streams streams, HttpOptions http, String projectDir,
+            boolean interactive, boolean movedPackage) {
         if (argv.isEmpty()) {
             streams.out().accept(Usage.root());
             return Failure.ANSWERED;
@@ -185,7 +195,9 @@ public final class Cli {
         }
 
         // A member word's bucket is known only once the package is read, so the package is moved in front first.
-        boolean movedPackage = MEMBER_WORDS.containsKey(root.pkg) && movePackageInFront(root);
+        if (!movedPackage && MEMBER_WORDS.containsKey(root.pkg) && typedPackage(rest(root)) != null) {
+            return run(packageInFront(argv, grammar), streams, http, projectDir, interactive, true);
+        }
         Failure.Validation bucketFirst = bucketBeforePackage(root);
         if (bucketFirst != null) {
             return usage.error(bucketFirst);
@@ -211,7 +223,7 @@ public final class Cli {
         String bucket = rest.isEmpty() ? null : rest.get(0);
         boolean memberWord = bucket != null && MEMBER_WORDS.containsKey(bucket);
         if (bucket != null && !Commands.BUCKETS.contains(bucket) && !memberWord) {
-            return usage.error(misnamedBucket(bucket, root, coordinate.value()));
+            return usage.error(misnamedBucket(bucket, root, coordinate.value(), version));
         }
 
         String filter = root.filter;
@@ -225,6 +237,9 @@ public final class Cli {
         Loader.LoadOptions options = new Loader.LoadOptions(
                 resolved, projectDir, List.of(CentralRepository.INSTANCE), root.module, version);
         Result<LoadedPackage> loaded = Loader.loadPackage(qualified, options);
+        if (!loaded.isOk() && memberWord) {
+            return usage.error(unreadMemberWord(bucket, root, coordinate.value(), movedPackage, loaded.failure()));
+        }
         if (!loaded.isOk()) {
             return fail(loaded.failure().lengthened(tail(root)), streams, json);
         }
@@ -383,23 +398,28 @@ public final class Cli {
         if (bucket == null) {
             return null;
         }
-        String message = packageFirst(word);
         List<String> words = rest(root);
         String typed = typedPackage(words);
         if (typed != null) {
             List<String> others = new ArrayList<>(words);
             others.remove(typed);
-            return runInstead(message, fixedCommand(root, Coordinate.parse(typed).value(), bucket, others));
+            return runInstead(packageFirst(word), fixedCommand(root, Coordinate.parse(typed).value(), bucket, others));
         }
+        return noPackage(word, bucket, words, root);
+    }
+
+    // The command's shape with a placeholder package, and the Central search that finds the package.
+    private static Failure.Validation noPackage(String word, String bucket, List<String> names, Commands.Root root) {
+        String message = packageFirst(word);
         List<String> shape = new ArrayList<>(List.of(bucket));
-        shape.addAll(words);
+        shape.addAll(names);
         String write = "Write " + Failure.quoted(Coordinate.COMMAND + PLACEHOLDER_PACKAGE
                 + Coordinate.moduleArgument(root.module) + tail(shape, root.filter, root.page));
-        if (words.isEmpty() || Readme.BUCKET.equals(bucket)) {
+        if (names.isEmpty() || Readme.BUCKET.equals(bucket)) {
             return new Failure.Validation(message, write + "; to find the package: "
                     + Failure.quoted(Coordinate.COMMAND + SearchCentral.VERB + " " + PLACEHOLDER_KEYWORD) + ".");
         }
-        String name = PathTree.plainSelector(words.get(0));
+        String name = keyword(names.get(0));
         String search = SearchCentral.command(List.of(name));
         return new Failure.Validation(message,
                 write + "; to find the package that declares '" + name + "': " + Failure.quoted(search) + ".",
@@ -410,45 +430,62 @@ public final class Cli {
         return "'" + word + "' is not a package; the package goes first.";
     }
 
-    // The word, last or first, that is a package coordinate, or null. The last is tried first: a resource path,
-    // which reads as a coordinate too, comes before its accessor.
+    private static String keyword(String typed) {
+        return Containers.searchKeyword(typed).orElse(PathTree.plainSelector(typed));
+    }
+
+    private static String notABucket(String word) {
+        return "'" + word + "' is not a bucket";
+    }
+
+    // The last word when it is a package coordinate, else null. Only the last: a resource path reads as a
+    // coordinate too, and it comes before its accessor.
     private static String typedPackage(List<String> words) {
         if (words.isEmpty()) {
             return null;
         }
-        for (String typed : List.of(words.get(words.size() - 1), words.get(0))) {
-            if (typed.contains(PathTree.SEPARATOR) && Coordinate.parse(typed).isOk()) {
-                return typed;
-            }
-        }
-        return null;
+        String last = words.get(words.size() - 1);
+        return last.contains(PathTree.SEPARATOR) && Coordinate.parse(last).isOk() ? last : null;
     }
 
-    // Reorders `method send <org>/<name>` into `<org>/<name> method send`; whether a package was there to move.
-    private static boolean movePackageInFront(Commands.Root root) {
-        String typed = typedPackage(rest(root));
-        if (typed == null) {
-            return false;
+    // argv with its last positional word, the package, moved to the first positional place.
+    private static List<String> packageInFront(List<String> argv, Commands.Grammar grammar) {
+        Set<String> takesValue = valueOptions(grammar);
+        List<Integer> positions = new ArrayList<>();
+        boolean literal = false;
+        for (int i = 0; i < argv.size(); i++) {
+            String token = argv.get(i);
+            if (literal || !token.startsWith(OPTION_START)) {
+                positions.add(i);
+            } else if (END_OF_OPTIONS.equals(token)) {
+                literal = true;
+            } else if (takesValue.contains(token)) {
+                i++;
+            }
         }
-        List<String> words = new ArrayList<>(List.of(root.pkg));
-        words.addAll(rest(root));
-        words.remove(typed);
-        root.pkg = typed;
-        root.rest = words;
-        return true;
+        List<String> reordered = new ArrayList<>(argv);
+        String pkg = reordered.remove((int) positions.get(positions.size() - 1));
+        reordered.add(positions.get(0), pkg);
+        return reordered;
     }
 
     // A plural or another spelling of a bucket, or a word for the package itself: the command it meant. Anything else
     // is read as a name.
-    private static Failure.Validation misnamedBucket(String word, Commands.Root root, Coordinate coordinate) {
+    private static Failure.Validation misnamedBucket(String word, Commands.Root root, Coordinate coordinate,
+            Version version) {
         List<String> others = rest(root).subList(1, rest(root).size());
         String meant = BUCKET_ALIASES.get(word);
         if (meant != null) {
-            return runInstead("'" + word + "' is not a bucket; the bucket is " + meant + ".",
-                    fixedCommand(root, coordinate, meant, others));
+            List<String> fixed = new ArrayList<>(List.of(meant));
+            fixed.addAll(others);
+            Failure.Validation further = extraNames(meant, fixed, root.filter, root, coordinate.qualified(), version);
+            String command = further != null && further.command() != null
+                    ? further.command()
+                    : fixedCommand(root, coordinate, meant, others);
+            return runInstead(notABucket(word) + "; the bucket is " + meant + ".", command);
         }
         if (PACKAGE_WORDS.contains(word)) {
-            return runInstead("'" + word + "' is not a bucket; a package's overview is the package alone.",
+            return runInstead(notABucket(word) + "; a package's overview is the package alone.",
                     fixedCommand(root, coordinate, null, others));
         }
         return unknownBucket(word, coordinate.command(root.module));
@@ -459,24 +496,46 @@ public final class Cli {
             Coordinate coordinate, boolean movedPackage) {
         List<String> names = rest(root).subList(1, rest(root).size());
         String member = MEMBER_WORDS.get(word);
-        String lead = movedPackage ? packageFirst(word) + " " : "";
-        Surface.Scope scope = Containers.memberBucket(loaded, member.equals(A_RESOURCE_METHOD), names).orElse(null);
+        String lead = (movedPackage ? packageFirst(word) + " " : "") + notABucket(word);
+        boolean resource = member.equals(A_RESOURCE_METHOD);
+        Surface.Scope scope = Containers.memberBucket(loaded, resource, names).orElse(null);
         if (scope != null) {
-            return runInstead(lead + "'" + word + "' is not a bucket; " + member
-                    + " is read under its container's bucket, here " + scope.verb() + ".",
-                    fixedCommand(root, coordinate, scope.verb(), names));
+            return runInstead(lead + "; " + member + " is read under its container's bucket, here " + scope.verb()
+                    + ".", fixedCommand(root, coordinate, scope.verb(), names));
         }
         String declarers = "no " + CONTAINER_BUCKETS + " in " + loaded.place() + " declares ";
+        Surface.Scope withMethods = resource && names.isEmpty()
+                ? Containers.memberBucket(loaded, false, names).orElse(null)
+                : null;
+        if (withMethods != null) {
+            return runInstead(lead + ", and " + declarers + member + "; its methods are read under "
+                    + withMethods.verb() + ".", fixedCommand(root, coordinate, withMethods.verb(), names));
+        }
         if (names.isEmpty()) {
             String overview = coordinate.command(root.module);
-            return new Failure.Validation(lead + "'" + word + "' is not a bucket, and " + declarers
-                    + member + ".", "See what it declares: " + Failure.quoted(overview) + ".",
-                    overview);
+            return new Failure.Validation(lead + ", and " + declarers + member + ".",
+                    "See what it declares: " + Failure.quoted(overview) + ".", overview);
         }
-        String name = PathTree.plainSelector(names.get(0));
+        String name = keyword(names.get(0));
         String search = coordinate.command(root.module) + " " + Search.BUCKET + " " + Texts.shellWord(name);
-        return new Failure.Validation(lead + "'" + word + "' is not a bucket, and " + declarers + "'" + name + "'.",
-                "Search the package for it: " + Failure.quoted(search) + ".", search);
+        return new Failure.Validation(lead + ", and " + declarers + "'" + name + "'.",
+                Search.SEARCH_FOR_IT + Failure.quoted(search) + ".", search);
+    }
+
+    // A member word whose package could not be read: where such a member is read, without the package. A moved
+    // package may not be one at all, so it gets the shape and the Central search instead.
+    private static Failure.Validation unreadMemberWord(String word, Commands.Root root, Coordinate coordinate,
+            boolean movedPackage, Failure cause) {
+        List<String> names = rest(root).subList(1, rest(root).size());
+        if (movedPackage) {
+            return noPackage(word, word, names, root);
+        }
+        String command = names.isEmpty()
+                ? fixedCommand(root, coordinate, Surface.Scope.CLIENT.verb(), names)
+                : coordinate.command(root.module) + " " + Search.BUCKET + " "
+                        + Texts.shellWord(keyword(names.get(0)));
+        return runInstead(notABucket(word) + "; " + MEMBER_WORDS.get(word) + " is read under its container's bucket ("
+                + CONTAINER_BUCKETS + "). The package could not be read: " + cause.headline(), command);
     }
 
     private static String fixedCommand(Commands.Root root, Coordinate coordinate, String bucket, List<String> names) {
@@ -497,7 +556,7 @@ public final class Cli {
     private static Failure.Validation unknownBucket(String token, String pkg) {
         String search = pkg + " " + Search.BUCKET + " " + Texts.shellWord(token);
         return new Failure.Validation(
-                "'" + token + "' is not a bucket.",
+                notABucket(token) + ".",
                 "The buckets are " + String.join(", ", Commands.BUCKETS) + ". To find what is named '" + token
                         + "': " + Failure.quoted(search) + ".", search);
     }
@@ -510,11 +569,15 @@ public final class Cli {
         return jsonOutput(argv, interactive, Commands.Grammar.create());
     }
 
-    private static boolean jsonOutput(List<String> argv, boolean interactive, Commands.Grammar grammar) {
-        Set<String> takesValue = grammar.line().getCommandSpec().options().stream()
+    private static Set<String> valueOptions(Commands.Grammar grammar) {
+        return grammar.line().getCommandSpec().options().stream()
                 .filter(option -> option.arity().min() > 0)
                 .flatMap(option -> Arrays.stream(option.names()))
                 .collect(Collectors.toSet());
+    }
+
+    private static boolean jsonOutput(List<String> argv, boolean interactive, Commands.Grammar grammar) {
+        Set<String> takesValue = valueOptions(grammar);
         for (int i = 0; i < argv.size(); i++) {
             String token = argv.get(i);
             String value = null;

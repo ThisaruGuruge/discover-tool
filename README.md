@@ -848,17 +848,17 @@ Run `bal discover --help` for details.
 
 A usage error is a `validation` failure found before anything is looked up: an unknown option, an option with
 a missing or invalid value (`--output xml`, `--page x`, `--page 0`, `--refresh=yes`) or given twice, no package,
-a malformed package name or incomplete version (a bucket typed where the package goes is answered with the
-package moved in front of it, or with the Central search for the name that follows), `--version`, a version typed as a positional, an unknown bucket,
-more than one name after `funcs` or `type`, a `type` name with `--filter`, or a `search` with no keyword, with
-`--filter`, or (across Central) with `--module`. An unknown bucket's `command` searches the package for the
-word, since it is most often a member typed without its bucket (`bal discover ballerinax/kafka close`); a
-plural or another spelling of a bucket (`clients`, `functions`, `types`) gets the command with the bucket it
-means. A `validation` failure that
-depends on what the package holds — an extra selector a container does not read, a readme section asked with a
-`--filter` keyword it does not mention, `method` or `resource` typed as the bucket (its `command` names the bucket
-of the container that declares what follows: `bal discover ballerinax/kafka methods send` is answered with
-`bal discover ballerinax/kafka client send`) — is exit 2 as well, without the synopsis.
+a malformed package name or incomplete version (a bucket typed where the package goes is answered with the package
+moved in front of it when it is the last word, else with the command's shape and the Central search for the name
+that follows), `--version`, a version typed as a positional, an unknown bucket, more than one name after `funcs` or
+`type`, a `type` name with `--filter`, or a `search` with no keyword, with `--filter`, or (across Central) with
+`--module`. An unknown bucket's `command` searches the package for the word, since it is most often a member typed
+without its bucket (`bal discover ballerinax/kafka close`); a plural or another spelling of a bucket (`clients`,
+`functions`, `types`) gets the command with the bucket it means. A `validation` failure that depends on what the
+package holds — an extra selector a container does not read, a readme section asked with a `--filter` keyword it
+does not mention, `method` or `resource` typed as the bucket (its `command` names the bucket of the container that
+declares what follows: `bal discover ballerinax/kafka methods send` is answered with `bal discover ballerinax/kafka
+client send`) — is exit 2 as well, without the synopsis.
 
 A search that matches nothing is an answer, not a failure (exit 0), and so is an empty `--filter`; a page past the
 end of a paged listing is `page-not-found` (exit 1), carrying `page`, `pages` and the last page's `command`, while
