@@ -184,6 +184,8 @@ public final class Cli {
                     "Pass '<org>/<name>', e.g. bal discover ballerinax/github."));
         }
 
+        // A member word's bucket is known only once the package is read, so the package is moved in front first.
+        boolean movedPackage = MEMBER_WORDS.containsKey(root.pkg) && movePackageInFront(root);
         Failure.Validation bucketFirst = bucketBeforePackage(root);
         if (bucketFirst != null) {
             return usage.error(bucketFirst);
@@ -228,7 +230,8 @@ public final class Cli {
         }
         if (memberWord) {
             LoadedPackage read = loaded.value();
-            return fail(readAt(memberBucket(read, bucket, root, coordinate.value()), read), streams, json);
+            return fail(readAt(memberBucket(read, bucket, root, coordinate.value(), movedPackage), read), streams,
+                    json);
         }
 
         Result<DiscoverResult> answer = answer(loaded.value(), bucket, rest, filter, root.page);
@@ -380,16 +383,13 @@ public final class Cli {
         if (bucket == null) {
             return null;
         }
-        String message = "'" + word + "' is not a package; the package goes first.";
+        String message = packageFirst(word);
         List<String> words = rest(root);
-        List<String> ends = words.isEmpty() ? List.of() : List.of(words.get(0), words.get(words.size() - 1));
-        for (String typed : ends) {
-            Result<Coordinate> pkg = typed.contains(PathTree.SEPARATOR) ? Coordinate.parse(typed) : null;
-            if (pkg != null && pkg.isOk()) {
-                List<String> others = new ArrayList<>(words);
-                others.remove(typed);
-                return runInstead(message, fixedCommand(root, pkg.value(), bucket, others));
-            }
+        String typed = typedPackage(words);
+        if (typed != null) {
+            List<String> others = new ArrayList<>(words);
+            others.remove(typed);
+            return runInstead(message, fixedCommand(root, Coordinate.parse(typed).value(), bucket, others));
         }
         List<String> shape = new ArrayList<>(List.of(bucket));
         shape.addAll(words);
@@ -404,6 +404,38 @@ public final class Cli {
         return new Failure.Validation(message,
                 write + "; to find the package that declares '" + name + "': " + Failure.quoted(search) + ".",
                 search);
+    }
+
+    private static String packageFirst(String word) {
+        return "'" + word + "' is not a package; the package goes first.";
+    }
+
+    // The word, last or first, that is a package coordinate, or null. The last is tried first: a resource path,
+    // which reads as a coordinate too, comes before its accessor.
+    private static String typedPackage(List<String> words) {
+        if (words.isEmpty()) {
+            return null;
+        }
+        for (String typed : List.of(words.get(words.size() - 1), words.get(0))) {
+            if (typed.contains(PathTree.SEPARATOR) && Coordinate.parse(typed).isOk()) {
+                return typed;
+            }
+        }
+        return null;
+    }
+
+    // Reorders `method send <org>/<name>` into `<org>/<name> method send`; whether a package was there to move.
+    private static boolean movePackageInFront(Commands.Root root) {
+        String typed = typedPackage(rest(root));
+        if (typed == null) {
+            return false;
+        }
+        List<String> words = new ArrayList<>(List.of(root.pkg));
+        words.addAll(rest(root));
+        words.remove(typed);
+        root.pkg = typed;
+        root.rest = words;
+        return true;
     }
 
     // A plural or another spelling of a bucket, or a word for the package itself: the command it meant. Anything else
@@ -424,25 +456,26 @@ public final class Cli {
 
     // A member word: the bucket of the container that declares what follows it, else the search for that name.
     private static Failure.Validation memberBucket(LoadedPackage loaded, String word, Commands.Root root,
-            Coordinate coordinate) {
+            Coordinate coordinate, boolean movedPackage) {
         List<String> names = rest(root).subList(1, rest(root).size());
         String member = MEMBER_WORDS.get(word);
+        String lead = movedPackage ? packageFirst(word) + " " : "";
         Surface.Scope scope = Containers.memberBucket(loaded, member.equals(A_RESOURCE_METHOD), names).orElse(null);
         if (scope != null) {
-            return runInstead("'" + word + "' is not a bucket; " + member
+            return runInstead(lead + "'" + word + "' is not a bucket; " + member
                     + " is read under its container's bucket, here " + scope.verb() + ".",
                     fixedCommand(root, coordinate, scope.verb(), names));
         }
         String declarers = "no " + CONTAINER_BUCKETS + " in " + loaded.place() + " declares ";
         if (names.isEmpty()) {
             String overview = coordinate.command(root.module);
-            return new Failure.Validation("'" + word + "' is not a bucket, and " + declarers
+            return new Failure.Validation(lead + "'" + word + "' is not a bucket, and " + declarers
                     + member + ".", "See what it declares: " + Failure.quoted(overview) + ".",
                     overview);
         }
         String name = PathTree.plainSelector(names.get(0));
         String search = coordinate.command(root.module) + " " + Search.BUCKET + " " + Texts.shellWord(name);
-        return new Failure.Validation("'" + word + "' is not a bucket, and " + declarers + "'" + name + "'.",
+        return new Failure.Validation(lead + "'" + word + "' is not a bucket, and " + declarers + "'" + name + "'.",
                 "Search the package for it: " + Failure.quoted(search) + ".", search);
     }
 

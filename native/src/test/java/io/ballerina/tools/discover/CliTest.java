@@ -267,6 +267,13 @@ public class CliTest {
                 + "package that declares 'send': `bal discover search send`.", missing.stderr());
         Assert.assertEquals(missing.field("command"), "bal discover search send", "never a package not given");
 
+        Capture member = new Capture();
+        Assert.assertEquals(Cli.run(List.of("method", "send", "ballerinax/kafka"), member.streams(),
+                centralFor("ballerinax__kafka", "4.6.5")), 2);
+        Assert.assertEquals(member.field("message"), "'method' is not a package; the package goes first. 'method' "
+                + "is not a bucket; a method is read under its container's bucket, here client.", member.stderr());
+        Assert.assertEquals(member.field("command"), "bal discover ballerinax/kafka client send", "one hop");
+
         Capture bare = new Capture();
         Assert.assertEquals(Cli.run(List.of("type"), bare.streams(), never()), 2);
         Assert.assertNull(bare.field("command"), bare.stderr());
