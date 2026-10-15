@@ -44,6 +44,7 @@ import picocli.CommandLine;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -89,6 +90,27 @@ public final class Cli {
     private static final String PLACEHOLDER_VERSION = "<version>";
 
     private static final String WRITE_VERSION = "To read a specific version, write it after the package: ";
+
+    private static final String A_RESOURCE_METHOD = "a resource method";
+
+    private static final String A_METHOD = "a method";
+
+    /** Plurals and other spellings typed for a bucket. */
+    private static final Map<String, String> BUCKET_ALIASES = Map.of(
+            "func", Surface.Scope.MODULE.verb(), "function", Surface.Scope.MODULE.verb(),
+            "functions", Surface.Scope.MODULE.verb(), "clients", Surface.Scope.CLIENT.verb(),
+            "services", Surface.Scope.SERVICE.verb(), "classes", Surface.Scope.CLASS.verb(),
+            "types", Types.BUCKET);
+
+    /** Words for the package itself, whose overview is the package with no bucket. */
+    private static final Set<String> PACKAGE_WORDS = Set.of("package", "packages");
+
+    /** Words for a member, which is read under its container's bucket, and the member each names. */
+    private static final Map<String, String> MEMBER_WORDS = Map.of(
+            "method", A_METHOD, "methods", A_METHOD, "resource", A_RESOURCE_METHOD, "resources", A_RESOURCE_METHOD);
+
+    private static final String CONTAINER_BUCKETS = Surface.Scope.CLIENT.verb() + ", "
+            + Surface.Scope.SERVICE.verb() + " or " + Surface.Scope.CLASS.verb();
 
     private Cli() {
     }
@@ -178,8 +200,9 @@ public final class Cli {
         // about the package, and costs a round trip to Central if left until after the load.
         List<String> rest = rest(root);
         String bucket = rest.isEmpty() ? null : rest.get(0);
-        if (bucket != null && !Commands.BUCKETS.contains(bucket)) {
-            return usage.error(unknownBucket(bucket, coordinate.value().command(root.module)));
+        boolean memberWord = bucket != null && MEMBER_WORDS.containsKey(bucket);
+        if (bucket != null && !Commands.BUCKETS.contains(bucket) && !memberWord) {
+            return usage.error(misnamedBucket(bucket, root, coordinate.value()));
         }
 
         String filter = root.filter;
@@ -195,6 +218,10 @@ public final class Cli {
         Result<LoadedPackage> loaded = Loader.loadPackage(qualified, options);
         if (!loaded.isOk()) {
             return fail(loaded.failure().lengthened(tail(root)), streams, json);
+        }
+        if (memberWord) {
+            LoadedPackage read = loaded.value();
+            return fail(readAt(memberBucket(read, bucket, root, coordinate.value()), read), streams, json);
         }
 
         Result<DiscoverResult> answer = answer(loaded.value(), bucket, rest, filter, root.page);
@@ -335,6 +362,59 @@ public final class Cli {
         return new Failure.Validation(
                 "This answer has only one page, so --page does not apply.",
                 "Drop --page: " + Failure.quoted(command) + ".", command);
+    }
+
+    // A plural or another spelling of a bucket, or a word for the package itself: the command it meant. Anything else
+    // is read as a name.
+    private static Failure.Validation misnamedBucket(String word, Commands.Root root, Coordinate coordinate) {
+        List<String> others = rest(root).subList(1, rest(root).size());
+        String meant = BUCKET_ALIASES.get(word);
+        if (meant != null) {
+            return runInstead("'" + word + "' is not a bucket; the bucket is " + meant + ".",
+                    fixedCommand(root, coordinate, meant, others));
+        }
+        if (PACKAGE_WORDS.contains(word)) {
+            return runInstead("'" + word + "' is not a bucket; a package's overview is the package alone.",
+                    fixedCommand(root, coordinate, null, others));
+        }
+        return unknownBucket(word, coordinate.command(root.module));
+    }
+
+    // A member word: the bucket of the container that declares what follows it, else the search for that name.
+    private static Failure.Validation memberBucket(LoadedPackage loaded, String word, Commands.Root root,
+            Coordinate coordinate) {
+        List<String> names = rest(root).subList(1, rest(root).size());
+        String member = MEMBER_WORDS.get(word);
+        Surface.Scope scope = Containers.memberBucket(loaded, member.equals(A_RESOURCE_METHOD), names).orElse(null);
+        if (scope != null) {
+            return runInstead("'" + word + "' is not a bucket; " + member
+                    + " is read under its container's bucket, here " + scope.verb() + ".",
+                    fixedCommand(root, coordinate, scope.verb(), names));
+        }
+        String declarers = "no " + CONTAINER_BUCKETS + " in " + loaded.place() + " declares ";
+        if (names.isEmpty()) {
+            String overview = coordinate.command(root.module);
+            return new Failure.Validation("'" + word + "' is not a bucket, and " + declarers
+                    + member + ".", "See what it declares: " + Failure.quoted(overview) + ".",
+                    overview);
+        }
+        String name = PathTree.plainSelector(names.get(0));
+        String search = coordinate.command(root.module) + " " + Search.BUCKET + " " + Texts.shellWord(name);
+        return new Failure.Validation("'" + word + "' is not a bucket, and " + declarers + "'" + name + "'.",
+                "Search the package for it: " + Failure.quoted(search) + ".", search);
+    }
+
+    private static String fixedCommand(Commands.Root root, Coordinate coordinate, String bucket, List<String> names) {
+        List<String> words = new ArrayList<>();
+        if (bucket != null) {
+            words.add(bucket);
+        }
+        words.addAll(names);
+        return coordinate.command(root.module) + tail(words, root.filter, root.page);
+    }
+
+    private static Failure.Validation runInstead(String message, String command) {
+        return new Failure.Validation(message, "Run " + Failure.quoted(command) + ".", command);
     }
 
     // A name typed where the bucket goes is most often a member's (`go doc` leaves the bucket out too): the search

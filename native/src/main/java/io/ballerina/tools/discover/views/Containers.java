@@ -230,6 +230,31 @@ public final class Containers {
         return Result.err(notInBucket(loaded, scope, options));
     }
 
+    /**
+     * The bucket a member word typed where the bucket goes means: the first whose containers hold what
+     * {@code selectors} name or, with none, the first whose containers declare a member of that kind.
+     *
+     * @param resource whether the word was for a resource method rather than a method
+     */
+    public static Optional<Surface.Scope> memberBucket(LoadedPackage loaded, boolean resource,
+            List<String> selectors) {
+        for (Surface.Scope scope : Surface.Scope.values()) {
+            if (scope == Surface.Scope.MODULE) {
+                continue;
+            }
+            for (Surface.Container container : Surface.of(loaded.library(), scope)) {
+                boolean holds = selectors.isEmpty()
+                        ? (resource ? container.hasPaths() : !container.standalone().isEmpty())
+                        : Surface.byName(List.of(container), selectors.get(0)).isPresent()
+                                || declares(loaded, container, selectors) || holdsPath(container, selectors);
+                if (holds) {
+                    return Optional.of(scope);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     // Whether one of the selectors is a whole path `container` declares, whatever the others name: the container
     // is then settled, and what it does not hold under that path is its miss to report.
     private static boolean holdsPath(Surface.Container container, List<String> selectors) {

@@ -214,6 +214,40 @@ public class CliTest {
                 "a member typed without its bucket is found by the search");
     }
 
+    // A word typed where the bucket goes, the message it gets and the command that fixes it.
+    private record Misnamed(String slug, List<String> argv, String message, String command) { }
+
+    @Test
+    public void aWordForABucketNamesTheBucketAndTheWholeCommand() {
+        String kafka = "bal discover ballerinax/kafka";
+        String github = "bal discover ballerinax/github";
+        for (Misnamed each : List.of(
+                new Misnamed("ballerinax__kafka", List.of("ballerinax/kafka", "clients"),
+                        "'clients' is not a bucket; the bucket is client.", kafka + " client"),
+                new Misnamed("ballerinax__kafka", List.of("ballerinax/kafka", "functions", "--filter", "x"),
+                        "'functions' is not a bucket; the bucket is funcs.", kafka + " funcs --filter x"),
+                new Misnamed("ballerinax__kafka", List.of("ballerinax/kafka", "types", "Error"),
+                        "'types' is not a bucket; the bucket is type.", kafka + " type Error"),
+                new Misnamed("ballerinax__kafka", List.of("ballerinax/kafka", "packages"),
+                        "'packages' is not a bucket; a package's overview is the package alone.", kafka),
+                new Misnamed("ballerinax__kafka", List.of("ballerinax/kafka", "methods", "send"),
+                        "'methods' is not a bucket; a method is read under its container's bucket, here client.",
+                        kafka + " client send"),
+                new Misnamed("ballerinax__github", List.of("ballerinax/github", "resource", "gists/'public", "get"),
+                        "'resource' is not a bucket; a resource method is read under its container's bucket, "
+                                + "here client.", github + " client gists/public get"),
+                new Misnamed("ballerinax__kafka", List.of("ballerinax/kafka", "method", "nosuchmethod"),
+                        "'method' is not a bucket, and no client, service or class in ballerinax/kafka:4.6.5 "
+                                + "declares 'nosuchmethod'.", kafka + " search nosuchmethod"))) {
+            String label = String.join(" ", each.argv());
+            Capture capture = new Capture();
+            Assert.assertEquals(Cli.run(each.argv(), capture.streams(), centralFor(each.slug(), "4.6.5")), 2, label);
+            Assert.assertEquals(capture.field("kind"), "validation", label);
+            Assert.assertEquals(capture.field("message"), each.message(), label);
+            Assert.assertEquals(capture.field("command"), each.command(), label);
+        }
+    }
+
     // A selector the container does not read, with the command that drops it.
     private record Unread(String slug, List<String> argv, String unread, String command) { }
 
