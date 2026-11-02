@@ -87,6 +87,26 @@ public class LeafExtrasTest {
     }
 
     @Test
+    public void aRequiredParameterAfterOneLeftOutIsPassedByName() {
+        Payload payload = Payload.pkg();
+        payload.with("clients", Decl.client("SmtpClient",
+                Decl.method("init", Decl.param("host", Node.builtin("string")),
+                        Decl.param("username", Node.builtin("string")).with("defaultValue", "()"),
+                        Decl.param("port", Node.builtin("int")),
+                        Decl.param("password", Node.builtin("string")).with("defaultValue", "()"),
+                        Decl.param("clientConfig", Node.named("SmtpConfiguration", "records").on("isInclusion"))),
+                Decl.method("sendMessage").on("isRemote")));
+        payload.with("records", Decl.record("SmtpConfiguration", Decl.field("port", Node.builtin("int"))));
+        Library library = Pipeline.build(payload.module());
+        LoadedPackage acme = new LoadedPackage(QualifiedName.parse("acme/acme").value(), FixtureCorpus.FIXTURE_VERSION,
+                library, Optional.empty(), null, List.of(), List.of(), null, null, () -> library, Map::of);
+        DiscoverResult.Signature send = (DiscoverResult.Signature) Asked.of(acme, "method", "sendMessage", "--client",
+                "SmtpClient").value();
+        Assert.assertEquals(send.create().code(),
+                "acme:SmtpClient smtpClient = new (host, port = port, clientConfig = clientConfig);");
+    }
+
+    @Test
     public void noLineIsInventedForWhatHasNoConstructorOrIsTheConstructor() {
         Assert.assertNull(leaf("ballerinax__kafka", Surface.Scope.CLIENT, "Producer", "init").create());
         Assert.assertNull(leaf("ballerina__log", Surface.Scope.MODULE, "printInfo").create());
