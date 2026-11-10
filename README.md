@@ -1042,7 +1042,7 @@ export packagePAT="$(gh auth token)"
 | `bal-tool/` | Packs `native`'s jar into the `ballerina/tool_discover` bala (platform `java25`) with `io.ballerina.plugin`, the way `openapi-tools` packs `bal openapi`. |
 | `config/resources/` | The `Ballerina.toml`/`BalTool.toml` templates for the bala. `BalTool.toml` declares the tool id `discover`, the name `bal` dispatches on. |
 | `native/src/test/resources/fixtures/` | Recorded Central payloads; the whole test suite runs against them, offline. |
-| `native/src/test/resources/snapshots/` | Per fixture, the `.bal` API document and every bucket's bare listing as `.buckets.txt`/`.buckets.json`. |
+| `native/src/test/resources/snapshots/` | Per fixture, the `.bal` API document and every noun's bare listing as `.buckets.txt`/`.buckets.json`. |
 
 Every dependency (`ballerina-cli`, `picocli`, `gson`) is `compileOnly`: they are on the Ballerina
 distribution's runtime classpath (`bre/lib`), so the jar bundles only this tool's own classes. The catch is
